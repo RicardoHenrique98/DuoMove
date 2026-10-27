@@ -5,6 +5,7 @@ import { go } from '../router.js';
 import { startEmpty, startFromRoutine } from '../workout.js';
 import { weekly, weekStreak, workoutVolume, workoutSets } from '../stats.js';
 import { todayCard, todayActions } from './plan.js';
+import { openActivityLog } from './activity.js';
 
 export function workoutCard(w) {
   const lines = w.exercises.slice(0, 3).map(e => `<li>${e.sets.length} × ${esc(getEx(e.exId).name)}</li>`).join('');
@@ -32,7 +33,8 @@ export function render() {
       <div class="days">${dayDots}</div>
       <div class="kpis"><div><b>${wk.count}</b><small>treinos</small></div><div><b>${fmtKg(wk.volume)}</b><small>volume</small></div><div><b>${wk.minutes}</b><small>minutos</small></div></div>
     </section>
-    <button class="btn soft block" data-act="startEmpty">${icon('plus', 18)} Treino livre</button>
+    <div class="row gap"><button class="btn soft grow" data-act="startEmpty">${icon('plus', 18)} Treino livre</button>
+      <button class="btn soft grow" data-act="logActivity">${icon('fire', 18)} Registrar atividade</button></div>
     <div class="section-head"><h2>Fichas prontas</h2><button class="link" data-act="goRoutines">Ver todas</button></div>
     ${routines.map(r => `<div class="card r-mini"><div class="grow" data-act="editRoutine" data-id="${r.id}"><b>${esc(r.name)}</b><small>${esc(r.exercises.map(e => getEx(e.exId).name).join(' · '))}</small></div>
       <button class="btn primary sm" data-act="startRoutine" data-id="${r.id}">${icon('play', 14)} Iniciar</button></div>`).join('')}
@@ -42,6 +44,7 @@ export function render() {
 export const actions = {
   ...todayActions,
   startEmpty: () => startEmpty(),
+  logActivity: (el, rerender) => openActivityLog(rerender),
   startRoutine: el => startFromRoutine(state.routines.find(r => r.id === el.dataset.id)),
   editRoutine: el => go('/rotina/' + el.dataset.id),
   goRoutines: () => go('/rotinas'),

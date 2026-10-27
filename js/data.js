@@ -5,7 +5,7 @@ export const MUSCLES = {
   peito: 'Peito', costas: 'Costas', ombros: 'Ombros', biceps: 'Bíceps', triceps: 'Tríceps',
   antebraco: 'Antebraço', quadriceps: 'Quadríceps', posterior: 'Posterior de coxa', gluteos: 'Glúteos',
   adutores: 'Adutores', panturrilha: 'Panturrilha', abdomen: 'Abdômen', trapezio: 'Trapézio',
-  corpo: 'Corpo inteiro', cardio: 'Cardio'
+  corpo: 'Corpo inteiro', cardio: 'Cardio', atividade: 'Atividades'
 };
 
 export const EQUIP = {
@@ -149,7 +149,17 @@ export const EXERCISES = [
   E('eliptico', 'Elíptico', 'cardio', 'maquina', 'cardio'),
   E('remo', 'Remo ergômetro', 'cardio', 'maquina', 'cardio'),
   E('escada', 'Escada (simulador)', 'cardio', 'maquina', 'cardio'),
-  E('natacao', 'Natação', 'cardio', 'nenhum', 'cardio')
+  E('natacao', 'Natação', 'cardio', 'nenhum', 'cardio'),
+  E('cardio-casa', 'Cardio em casa (polichinelo, corrida parada, corda)', 'cardio', 'nenhum', 'cardio'),
+  // Outras atividades (registro rápido)
+  E('futebol', 'Futebol', 'atividade', 'nenhum', 'cardio'), E('futsal', 'Futsal', 'atividade', 'nenhum', 'cardio'),
+  E('basquete', 'Basquete', 'atividade', 'nenhum', 'cardio'), E('volei', 'Vôlei', 'atividade', 'nenhum', 'cardio'),
+  E('beach-tennis', 'Beach tennis', 'atividade', 'nenhum', 'cardio'), E('tenis', 'Tênis', 'atividade', 'nenhum', 'cardio'),
+  E('crossfit', 'Crossfit', 'atividade', 'nenhum', 'cardio'), E('funcional', 'Treino funcional', 'atividade', 'nenhum', 'cardio'),
+  E('luta', 'Luta / artes marciais', 'atividade', 'nenhum', 'cardio'), E('danca', 'Dança', 'atividade', 'nenhum', 'cardio'),
+  E('yoga', 'Yoga', 'atividade', 'nenhum', 'cardio'), E('pilates', 'Pilates', 'atividade', 'nenhum', 'cardio'),
+  E('trilha', 'Trilha / caminhada na natureza', 'atividade', 'nenhum', 'cardio'), E('escalada', 'Escalada', 'atividade', 'nenhum', 'cardio'),
+  E('surf', 'Surf', 'atividade', 'nenhum', 'cardio')
 ];
 
 // Imagens de demonstração (início e fim do movimento) da Free Exercise DB — domínio público

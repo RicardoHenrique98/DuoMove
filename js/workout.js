@@ -49,8 +49,8 @@ export async function startPlanSession(sess) {
   if (!(await canStart())) return;
   const ctx = { rir: sess.status.rir, deload: sess.phase === 'deload' };
   begin({
-    name: sess.name, kind: 'musculacao', plan: { phase: sess.phase, key: sess.key, week: sess.status.week },
-    exercises: sess.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest, '', ctx), group: e.group, tech: e.tech }))
+    name: sess.name, kind: sess.kind === 'cardio' ? sess.mode : 'musculacao', plan: { kind: sess.kind, mode: sess.mode || null, type: sess.type || null, phase: sess.phase, key: sess.key, week: sess.status.week },
+    exercises: sess.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest, e.tip || '', ctx), group: e.group, tech: e.tech, quality: e.rx?.quality || null }))
   });
 }
 

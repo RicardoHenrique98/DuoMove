@@ -309,3 +309,9 @@ body.no-tabs .tabbar { display: none; }
 .steps { display: flex; gap: 5px; }
 .steps i { flex: 1; height: 4px; border-radius: 4px; background: var(--panel3); }
 .steps i.on { background: var(--lime); }
+
+.prev.timer { display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-weight: 750; }
+.prev.timer.on { color: var(--orange); }
+.prev.timer .ic { flex: none; }
+.chips.wrap { flex-wrap: wrap; }
+.km-field[hidden] { display: none; }

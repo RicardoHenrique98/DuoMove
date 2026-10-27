@@ -3,19 +3,22 @@ import { state, save, getEx } from '../store.js';
 import { esc, fmtDate, fmtRest } from '../util.js';
 import { icon, confirmBox, toast, menu } from '../ui.js';
 import { go, back } from '../router.js';
-import { LEVELS, BREAKS, PLACES, PHASES, VARIETY, createPlan, nextSession, phaseStatus, planWorkouts } from '../planner.js';
+import { LEVELS, BREAKS, PLACES, PHASES, VARIETY, QUALITIES, createPlan, nextSession, phaseStatus, planWorkouts } from '../planner.js';
 import { startPlanSession } from '../workout.js';
+import { CARDIO_CHOICES } from '../cardio.js';
 import { TECHNIQUES } from '../techniques.js';
 
-const GOALS = { 'Ganhar massa muscular': 'Hipertrofia, mais músculo', 'Ganhar força': 'Levantar mais peso', 'Emagrecer': 'Perder gordura mantendo músculo', 'Melhorar saúde e bem-estar': 'Disposição e qualidade de vida' };
+const GOALS = { 'Ganhar massa muscular': 'Hipertrofia, mais músculo', 'Ganhar força': 'Levantar mais peso', 'Emagrecer': 'Perder gordura mantendo músculo', 'Ganhar condicionamento': 'Mais fôlego e resistência', 'Melhorar saúde e bem-estar': 'Disposição e qualidade de vida' };
 
 const STEPS = [
   { key: 'goal', q: 'Qual é o seu objetivo principal?', opts: GOALS },
   { key: 'level', q: 'Qual a sua experiência com musculação?', opts: { iniciante: 'Menos de 1 ano de treino', intermediario: '1 a 3 anos treinando com regularidade', avancado: 'Mais de 3 anos, conheço bem as técnicas' }, labels: LEVELS },
   { key: 'breakTime', q: 'Está treinando ou ficou um tempo parado?', opts: { nao: 'Treino com regularidade', '1m': 'Parei há menos de 1 mês', '3m': 'Parei há 1 a 3 meses', '6m': 'Parei há 3 a 6 meses', mais: 'Parei há mais de 6 meses' }, labels: BREAKS },
-  { key: 'days', q: 'Quantos dias por semana você consegue treinar?', opts: { 2: '2 dias', 3: '3 dias', 4: '4 dias', 5: '5 dias', 6: '6 dias' }, num: true },
+  { key: 'days', q: 'Quantos dias por semana de musculação?', opts: { 2: '2 dias', 3: '3 dias', 4: '4 dias', 5: '5 dias', 6: '6 dias' }, num: true },
   { key: 'minutes', q: 'Quanto tempo você tem por treino?', opts: { 30: '30 minutos', 45: '45 minutos', 60: '1 hora', 75: '1h15', 90: '1h30 ou mais' }, num: true },
   { key: 'place', q: 'Onde você vai treinar?', opts: { academia: 'Máquinas, polias, barras e halteres', halteres: 'Halteres e peso do corpo', nenhum: 'Só o peso do corpo' }, labels: PLACES },
+  { key: 'cardio', q: 'Quer incluir corrida ou pedal no plano?', opts: { nao: 'O plano já inclui um pouco de cardio no fim dos treinos', corrida: 'Treinos de corrida com progressão própria', pedal: 'Treinos de pedal com progressão própria', ambos: 'Alterna corrida e pedal' }, labels: CARDIO_CHOICES },
+  { key: 'cardioDays', q: 'Quantas vezes por semana de cardio?', opts: { 1: '1 vez', 2: '2 vezes', 3: '3 vezes' }, num: true, when: a => a.cardio && a.cardio !== 'nao' },
   { key: 'variety', q: 'Com que frequência quer mudar a ficha?', opts: Object.fromEntries(Object.entries(VARIETY).map(([k, v]) => [k, v[1]])), labels: Object.fromEntries(Object.entries(VARIETY).map(([k, v]) => [k, v[0]])) }
 ];
 
@@ -46,11 +49,15 @@ export const wizard = {
     answer(el, rerender) {
       const s = STEPS[step];
       answers[s.key] = s.num ? +el.dataset.k : el.dataset.k;
-      step++; rerender();
+      step++;
+      while (STEPS[step]?.when && !STEPS[step].when(answers)) step++;
+      rerender();
     },
     prev(el, rerender) {
       if (step === 0) { answers = {}; return back('/inicio'); }
-      step--; rerender();
+      step--;
+      while (step > 0 && STEPS[step]?.when && !STEPS[step].when(answers)) step--;
+      rerender();
     },
     async create() {
       if (state.plan && !(await confirmBox('Refazer o plano?', 'O plano atual recomeça do início. Seu histórico de treinos continua.', 'Refazer'))) return;
@@ -72,6 +79,7 @@ const rxText = e => {
   const t = main[0] || e.sets[0];
   if (e.tech === 'pyrUp') return 'pirâmide 12-10-8-6';
   if (t?.sec) return `${main.length} × ${t.sec}s`;
+  if (t?.min != null) return main.length > 1 ? `${main.length} × ${t.min < 1 ? t.min * 60 + ' s' : t.min + ' min'}` : `${t.min} min`;
   return `${main.length} × ${t?.rmax ? `${t.reps}–${t.rmax}` : t?.reps}`;
 };
 
@@ -79,23 +87,25 @@ export function todayCard({ full = false } = {}) {
   if (!state.plan) return `<button class="card today" data-act="planSetup">
       <span class="phase-pill">${icon('bulb', 13)} Novo</span>
       <h2>Monte seu plano com o treinador</h2>
-      <p class="muted small">Responda 7 perguntas e o app monta seus treinos, ajusta cargas e escolhe técnicas conforme você evolui.</p>
+      <p class="muted small">Responda algumas perguntas e o app monta seus treinos, ajusta cargas e escolhe técnicas conforme você evolui.</p>
       <span class="btn primary block">Começar</span></button>`;
   const sess = nextSession(), st = sess.status;
-  const list = sess.exercises.map(e => `<li>${esc(getEx(e.exId).name)} <small>· ${rxText(e)}${e.group ? ' · bi-set' : ''}${e.tech && TECHNIQUES[e.tech] ? ' · ' + TECHNIQUES[e.tech].label.toLowerCase() : ''}</small></li>`).join('');
+  const list = sess.exercises.map(e => `<li>${esc(getEx(e.exId).name)} <small>· ${e.rx?.quality && e.rx.quality !== 'hiper' && QUALITIES[e.rx.quality] ? QUALITIES[e.rx.quality].label.toLowerCase() + ' · ' : ''}${rxText(e)}${e.group ? (e.group.startsWith('circ') ? ' · circuito' : ' · bi-set') : ''}${e.tech && TECHNIQUES[e.tech] ? ' · ' + TECHNIQUES[e.tech].label.toLowerCase() : ''}</small></li>`).join('');
   return `<section class="card today">
-    <div class="row between"><span class="phase-pill ${st.color}">${esc(st.name)} · semana ${st.week} de ${st.weeks}</span>${full ? '' : `<button class="link" data-act="planPage">Ver plano</button>`}</div>
+    <div class="row between"><span class="phase-pill ${sess.kind === 'cardio' ? 'blue' : st.color}">${sess.kind === 'cardio' ? 'Cardio' : `${esc(st.name)} · semana ${st.week} de ${st.weeks}`}</span>${full ? '' : `<button class="link" data-act="planPage">Ver plano</button>`}</div>
     <div><small class="muted">Treino de hoje</small><h2>${esc(sess.name)}</h2></div>
     <ul>${list}</ul>
     ${sess.reasons.length ? `<div class="why">${sess.reasons.map(r => `<p>${icon('bulb', 14)}<span>${esc(r)}</span></p>`).join('')}</div>` : ''}
     <button class="btn primary block lg" data-act="planStart">${icon('play', 18)} Começar treino de hoje</button>
+    ${state.profile.cardio && state.profile.cardio !== 'nao' ? `<button class="link center" data-act="planSwap">${sess.kind === 'cardio' ? 'Prefere musculação hoje?' : 'Prefere cardio hoje?'}</button>` : ''}
   </section>`;
 }
 
 export const todayActions = {
   planSetup: () => startWizard(),
   planPage: () => go('/plano'),
-  planStart: () => startPlanSession(nextSession())
+  planStart: () => startPlanSession(nextSession()),
+  planSwap: (el, rerender) => { state.plan.prefer = nextSession().kind === 'cardio' ? 'forca' : 'cardio'; save(); rerender(); }
 };
 
 /* ---------- Página do plano ---------- */
@@ -122,7 +132,7 @@ export const page = {
         <p class="muted small">Depois da descarga começa um novo ciclo com os exercícios complementares trocados. Ciclos completos: ${plan.blocks}.</p>
       </section>
       <section class="card"><b>Seu perfil de treino</b>
-        <p class="muted small" style="margin-top:6px">${esc(p.goal)} · ${esc(LEVELS[p.level] || '')} · ${p.days} dias/semana · ${p.minutes} min · ${esc(PLACES[p.place] || '')}</p>
+        <p class="muted small" style="margin-top:6px">${esc(p.goal)} · ${esc(LEVELS[p.level] || '')} · ${p.days} dias/semana · ${p.minutes} min · ${esc(PLACES[p.place] || '')}${p.cardio && p.cardio !== 'nao' ? ` · ${esc(CARDIO_CHOICES[p.cardio])} ${p.cardioDays}x/semana` : ''}</p>
         <p class="muted small">${done} treinos feitos pelo plano.</p>
         <button class="setting" data-act="variety"><span>Troca de ficha</span><b>${esc(VARIETY[p.variety || 'ciclo'][0])}</b></button></section>
       ${plan.log.length ? `<section class="card"><b>Decisões do treinador</b>${plan.log.slice(-6).reverse().map(l => `<div class="done-set" style="align-items:flex-start;margin-top:8px"><small class="muted" style="min-width:52px">${fmtDate(l.ts)}</small><span class="small"><b>${esc(PHASES[l.phase].name)}</b> — ${esc(l.why)}</span></div>`).join('')}</section>` : ''}`;

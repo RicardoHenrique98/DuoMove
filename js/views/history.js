@@ -6,13 +6,15 @@ import { go, back } from '../router.js';
 import { repeatWorkout, editWorkout, routineFromWorkout } from '../workout.js';
 import { workoutVolume, workoutSets, workoutKm, newRecords } from '../stats.js';
 import { workoutCard } from './home.js';
+import { openActivityLog } from './activity.js';
 import { fmtSet, setTag } from './live.js';
 import { isMain } from '../techniques.js';
 
 export function render() {
   const list = sortedWorkouts();
   if (!list.length) return `<div class="page-head"><div><div class="eyebrow">Seus treinos</div><h1>Histórico</h1></div></div>
-    <div class="empty big">${icon('clock', 34)}<b>Nenhum treino ainda</b><span>Quando você finalizar um treino, ele aparece aqui.</span></div>`;
+    <div class="empty big">${icon('clock', 34)}<b>Nenhum treino ainda</b><span>Quando você finalizar um treino, ele aparece aqui.</span></div>
+    <button class="btn soft block" data-act="logActivity">${icon('plus', 16)} Registrar outra atividade</button>`;
   let month = '', html = '';
   for (const w of list) {
     const m = fmtDate(w.start, { month: 'long', year: 'numeric' });
@@ -23,10 +25,10 @@ export function render() {
     }
     html += workoutCard(w);
   }
-  return `<div class="page-head"><div><div class="eyebrow">Seus treinos</div><h1>Histórico</h1></div><span class="pill">${plural(list.length, 'treino', 'treinos')}</span></div>${html}`;
+  return `<div class="page-head"><div><div class="eyebrow">Seus treinos</div><h1>Histórico</h1></div><button class="btn soft sm" data-act="logActivity">${icon('plus', 16)} Atividade</button></div>${html}`;
 }
 
-export const actions = { openWorkout: el => go('/historico/' + el.dataset.id) };
+export const actions = { openWorkout: el => go('/historico/' + el.dataset.id), logActivity: (el, rerender) => openActivityLog(rerender) };
 
 export const detail = {
   hideTabs: true,

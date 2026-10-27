@@ -85,13 +85,14 @@ export function newRecords(w) {
 
 export function weekly(n = 12) {
   const now = startOfWeek(Date.now());
-  const weeks = Array.from({ length: n }, (_, i) => ({ start: now - (n - 1 - i) * 7 * DAY, count: 0, volume: 0, minutes: 0 }));
+  const weeks = Array.from({ length: n }, (_, i) => ({ start: now - (n - 1 - i) * 7 * DAY, count: 0, volume: 0, minutes: 0, km: 0 }));
   for (const w of state.workouts) {
     const i = Math.round((startOfWeek(w.start) - weeks[0].start) / (7 * DAY));
     if (i < 0 || i >= n) continue;
     weeks[i].count++;
     weeks[i].volume += workoutVolume(w);
     weeks[i].minutes += Math.round(((w.end || w.start) - w.start) / 60e3);
+    weeks[i].km += workoutKm(w);
   }
   return weeks;
 }

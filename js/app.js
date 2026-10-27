@@ -101,6 +101,7 @@ function paintRest() {
 setInterval(() => {
   const a = state.active;
   if (!a) return;
+  live.tickRuns(redraw);
   document.querySelectorAll('[data-clock]').forEach(n => { n.textContent = fmtClock(Date.now() - a.start); });
   if (a.restEnd) {
     const left = a.restEnd - Date.now();
@@ -109,6 +110,7 @@ setInterval(() => {
       if (state.profile.sound) beep();
       toast('Descanso finalizado. Bora para a próxima série!');
       paintRest(); paintMini();
+      live.onRestEnd(redraw);
     } else {
       document.querySelectorAll('[data-rest]').forEach(n => { n.textContent = fmtClock(left); });
       const fill = document.querySelector('.rest-fill');

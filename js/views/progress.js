@@ -19,8 +19,8 @@ export function render() {
   const freq = {};
   for (const w of state.workouts) for (const e of w.exercises) freq[e.exId] = (freq[e.exId] || 0) + 1;
   const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  const pts = weeks.map(w => ({ label: fmtDate(w.start, { day: '2-digit', month: '2-digit' }), value: metric === 'count' ? w.count : metric === 'volume' ? w.volume : w.minutes }));
-  const fmt = metric === 'volume' ? v => fmtKg(v) : v => fmtNum(v, 0);
+  const pts = weeks.map(w => ({ label: fmtDate(w.start, { day: '2-digit', month: '2-digit' }), value: metric === 'count' ? w.count : metric === 'volume' ? w.volume : metric === 'km' ? w.km : w.minutes }));
+  const fmt = metric === 'volume' ? v => fmtKg(v) : metric === 'km' ? v => fmtNum(v, 1) + ' km' : v => fmtNum(v, 0);
   return `<div class="page-head"><div><div class="eyebrow">Constância acima de tudo</div><h1>Progresso</h1></div></div>
     <div class="kpi-cards">
       <div class="card"><small>Treinos</small><b>${total}</b></div>
@@ -29,7 +29,7 @@ export function render() {
     </div>
     <section class="card">
       <div class="row between"><b>Últimas 12 semanas</b></div>
-      <div class="chips">${[['count', 'Treinos'], ['volume', 'Volume'], ['minutes', 'Minutos']].map(([k, l]) => `<button class="chip ${metric === k ? 'on' : ''}" data-act="metric" data-k="${k}">${l}</button>`).join('')}</div>
+      <div class="chips">${[['count', 'Treinos'], ['volume', 'Volume'], ['minutes', 'Minutos'], ['km', 'Km']].map(([k, l]) => `<button class="chip ${metric === k ? 'on' : ''}" data-act="metric" data-k="${k}">${l}</button>`).join('')}</div>
       ${barChart(pts, fmt, 'Treinos por semana')}
     </section>
     <section class="card">
