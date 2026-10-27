@@ -168,7 +168,7 @@ const IMG_BASE = 'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7d
 export const imgUrl = (img, n) => `${IMG_BASE}${img}/${n}.jpg`;
 // Se a CDN falhar, tenta o GitHub direto; se também falhar, esconde a imagem
 const RAW_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/';
-window.dmImgFallback = el => {
+globalThis.dmImgFallback = el => {
   if (el.src.startsWith(IMG_BASE)) el.src = RAW_BASE + el.src.slice(IMG_BASE.length);
   else el.style.visibility = 'hidden';
 };

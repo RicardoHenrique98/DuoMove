@@ -3,7 +3,7 @@ import { state, save, getEx } from '../store.js';
 import { esc, fmtDate, fmtRest } from '../util.js';
 import { icon, confirmBox, toast, menu } from '../ui.js';
 import { go, back } from '../router.js';
-import { LEVELS, BREAKS, PLACES, PHASES, VARIETY, QUALITIES, createPlan, nextSession, phaseStatus, planWorkouts } from '../planner.js';
+import { LEVELS, BREAKS, PLACES, PHASES, VARIETY, QUALITIES, SEXES, FOCUS, createPlan, nextSession, phaseStatus, planWorkouts } from '../planner.js';
 import { startPlanSession } from '../workout.js';
 import { CARDIO_CHOICES } from '../cardio.js';
 import { TECHNIQUES } from '../techniques.js';
@@ -13,6 +13,8 @@ const GOALS = { 'Ganhar massa muscular': 'Hipertrofia, mais músculo', 'Ganhar f
 const STEPS = [
   { key: 'goal', q: 'Qual é o seu objetivo principal?', opts: GOALS },
   { key: 'goal2', q: 'E um objetivo secundário?', opts: a => ({ ...Object.fromEntries(Object.entries(GOALS).filter(([k]) => k !== a.goal)), '': 'Só o objetivo principal' }), goalLike: true },
+  { key: 'sex', q: 'Para quem é o treino?', opts: { f: 'O treinador ajusta volume, descanso e saltos de carga', m: 'O treinador ajusta volume, descanso e saltos de carga', x: 'Usa os ajustes padrão' }, labels: SEXES },
+  { key: 'focus', q: 'Quer priorizar alguma região?', opts: Object.fromEntries(Object.entries(FOCUS).map(([k, v]) => [k, v[1]])), labels: Object.fromEntries(Object.entries(FOCUS).map(([k, v]) => [k, v[0]])) },
   { key: 'level', q: 'Qual a sua experiência com musculação?', opts: { iniciante: 'Menos de 1 ano de treino', intermediario: '1 a 3 anos treinando com regularidade', avancado: 'Mais de 3 anos, conheço bem as técnicas' }, labels: LEVELS },
   { key: 'breakTime', q: 'Está treinando ou ficou um tempo parado?', opts: { nao: 'Treino com regularidade', '1m': 'Parei há menos de 1 mês', '3m': 'Parei há 1 a 3 meses', '6m': 'Parei há 3 a 6 meses', mais: 'Parei há mais de 6 meses' }, labels: BREAKS },
   { key: 'days', q: 'Quantos dias por semana de musculação?', opts: { 2: '2 dias', 3: '3 dias', 4: '4 dias', 5: '5 dias', 6: '6 dias' }, num: true },
@@ -53,6 +55,9 @@ export const wizard = {
       const s = STEPS[step];
       answers[s.key] = s.num ? +el.dataset.k : el.dataset.k;
       if (s.key === 'goal' && answers.goal2 === answers.goal) answers.goal2 = '';
+      // Sugestão inicial de prioridade (a pessoa pode trocar na próxima tela)
+      if (s.key === 'sex' && !answers.focusPicked) answers.focus = answers.sex === 'f' ? 'gluteos' : 'equilibrado';
+      if (s.key === 'focus') answers.focusPicked = true;
       step++;
       while (STEPS[step]?.when && !STEPS[step].when(answers)) step++;
       rerender();
@@ -65,6 +70,7 @@ export const wizard = {
     },
     async create() {
       if (state.plan && !(await confirmBox('Refazer o plano?', 'O plano atual recomeça do início. Seu histórico de treinos continua.', 'Refazer'))) return;
+      delete answers.focusPicked;
       Object.assign(state.profile, answers);
       createPlan(state.profile);
       step = 0; answers = {};
@@ -136,7 +142,7 @@ export const page = {
         <p class="muted small">Depois da descarga começa um novo ciclo com os exercícios complementares trocados. Ciclos completos: ${plan.blocks}.</p>
       </section>
       <section class="card"><b>Seu perfil de treino</b>
-        <p class="muted small" style="margin-top:6px">${esc(p.goal)}${p.goal2 ? ' + ' + esc(p.goal2.toLowerCase()) : ''} · ${esc(LEVELS[p.level] || '')} · ${p.days} dias/semana · ${p.minutes} min · ${esc(PLACES[p.place] || '')}${p.cardio && p.cardio !== 'nao' ? ` · ${esc(CARDIO_CHOICES[p.cardio])} ${p.cardioDays}x/semana` : ''}</p>
+        <p class="muted small" style="margin-top:6px">${p.sex ? esc(SEXES[p.sex]) + ' · ' : ''}${esc(p.goal)}${p.goal2 ? ' + ' + esc(p.goal2.toLowerCase()) : ''}${p.focus && p.focus !== 'equilibrado' ? ' · prioridade ' + esc(FOCUS[p.focus][0].toLowerCase()) : ''} · ${esc(LEVELS[p.level] || '')} · ${p.days} dias/semana · ${p.minutes} min · ${esc(PLACES[p.place] || '')}${p.cardio && p.cardio !== 'nao' ? ` · ${esc(CARDIO_CHOICES[p.cardio])} ${p.cardioDays}x/semana` : ''}</p>
         <p class="muted small">${done} treinos feitos pelo plano.</p>
         <button class="setting" data-act="variety"><span>Troca de ficha</span><b>${esc(VARIETY[p.variety || 'ciclo'][0])}</b></button></section>
       ${plan.log.length ? `<section class="card"><b>Decisões do treinador</b>${plan.log.slice(-6).reverse().map(l => `<div class="done-set" style="align-items:flex-start;margin-top:8px"><small class="muted" style="min-width:52px">${fmtDate(l.ts)}</small><span class="small"><b>${esc(PHASES[l.phase].name)}</b> — ${esc(l.why)}</span></div>`).join('')}</section>` : ''}`;

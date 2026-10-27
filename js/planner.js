@@ -13,6 +13,42 @@ export const VARIETY = {
   semana: ['Trocar a ficha toda semana', 'Exercícios complementares mudam a cada semana; os principais ficam'],
   sempre: ['Ficha nova a cada treino', 'Máxima variedade: complementares mudam todo treino e os principais toda semana']
 };
+export const SEXES = { f: 'Feminino', m: 'Masculino', x: 'Prefiro não dizer' };
+export const FOCUS = {
+  equilibrado: ['Equilibrado', 'Corpo todo por igual'],
+  gluteos: ['Glúteos e pernas', 'Mais volume para glúteos, posterior e coxas'],
+  superior: ['Parte superior', 'Mais volume para peito, costas e ombros'],
+  bracos: ['Braços', 'Bíceps e tríceps em todo treino de superiores']
+};
+const FOCUS_P = { gluteos: new Set(['glute', 'hinge', 'lunge', 'ham']), superior: new Set(['hpush', 'incline', 'hpull', 'vpull', 'vpush', 'side', 'fly', 'rear']), bracos: new Set(['biceps', 'triceps']) };
+const UPPER_KEYS = new Set(['UP-A', 'UP-B', 'PUSH', 'PULL']), LOWER_KEYS = new Set(['LO-A', 'LO-B', 'LEGS']);
+
+// Encaixa os exercícios da prioridade escolhida logo depois dos principais (para não serem cortados por falta de tempo)
+function applyFocus(slots, key, p) {
+  const focus = p.focus || 'equilibrado';
+  let out = [...slots];
+  const has = pt => out.some(x => x.p === pt);
+  const insertAfterMains = (...add) => { const i = out.findIndex(x => x.role !== 'main'); out.splice(i < 0 ? out.length : i, 0, ...add); };
+  if (focus === 'gluteos') {
+    if (!UPPER_KEYS.has(key)) {
+      if (!has('glute')) insertAfterMains(M('glute', 'sec'));
+      out = out.map(x => x.p === 'quad' ? M('glute', 'acc') : x);
+      if (out.filter(x => x.p === 'glute').length < 2) out.push(M('glute', 'acc'));
+    } else { const i = out.findIndex(x => x.role === 'acc'); out.splice(i < 0 ? out.length : i, 0, M('glute', 'acc')); }
+  }
+  if (focus === 'superior' && !LOWER_KEYS.has(key)) {
+    if (!has('incline')) insertAfterMains(M('incline', 'sec'));
+    if (!has('hpull')) insertAfterMains(M('hpull', 'sec'));
+  }
+  if (focus === 'bracos' && !LOWER_KEYS.has(key)) {
+    const rest = out.filter(x => x.p !== 'biceps' && x.p !== 'triceps');
+    const i = rest.findIndex(x => x.role === 'acc');
+    rest.splice(i < 0 ? rest.length : i, 0, M('biceps', 'acc'), M('triceps', 'acc'));
+    out = rest;
+  }
+  return out;
+}
+
 export const FEEDBACK = [[1, 'Leve', 'Sobrou energia'], [2, 'Bom', 'Na medida'], [3, 'Pesado', 'Cansei bastante'], [4, 'Exaustivo', 'Passou do ponto']];
 
 export const PHASES = {
@@ -51,6 +87,7 @@ const POOLS = {
 };
 // Exercícios que o treinador evita na readaptação e para iniciantes no primeiro ciclo
 const DEMANDING = new Set(['agachamento-livre', 'levantamento-terra', 'good-morning', 'supino-reto-barra', 'desenvolvimento-barra', 'barra-fixa', 'remada-curvada', 'hack', 'bulgaro', 'triceps-testa', 'roda-abdominal', 'stiff']);
+const HOME_ONLY = new Set(['agachamento-corpo', 'afundo-corpo', 'panturrilha-corpo', 'flexao-pike', 'remada-invertida', 'superman', 'ponte-gluteo']);
 const ISOLATION = new Set(['fly', 'side', 'rear', 'biceps', 'triceps', 'quad', 'ham', 'calves', 'glute']);
 const HIGH_REPS = new Set(['side', 'rear', 'calves', 'core']);
 
@@ -224,8 +261,10 @@ function pickExercise(slot, i, ctx) {
     const strong = gentle ? pool : pool.filter(id => DEMANDING.has(id)).concat(pool.filter(id => !DEMANDING.has(id)));
     return strong[rotation(plan, p, 'main') % Math.min(2, strong.length)];
   }
-  // Complementares: trocam a cada ciclo
-  return pool[(rotation(plan, p, 'acc') + i) % pool.length];
+  // Na academia, versões só com peso do corpo ficam como reserva
+  if (p.place === 'academia' || !p.place) { const eq = pool.filter(id => !HOME_ONLY.has(id)); if (eq.length) pool = eq; }
+  // Secundários: o melhor da lista; complementares: trocam a cada ciclo
+  return pool[(rotation(plan, p, 'acc') + (slot.role === 'acc' ? i : 0)) % pool.length];
 }
 
 function prescription(slot, phase, week, plan, p) {
@@ -252,6 +291,12 @@ function prescription(slot, phase, week, plan, p) {
     sets = 2; range = role === 'main' ? [8, 10] : [10, 12]; rest = role === 'main' ? 120 : 60; warm = role === 'main' ? 1 : 0;
   }
   if (role !== 'main' && phase !== 'deload') sets = Math.max(2, sets + plan.volAdj);
+  // Mulheres costumam recuperar mais rápido entre séries e tolerar mais volume
+  const build = phase !== 'deload' && phase !== 'readapt';
+  if (p.sex === 'f' && build && role !== 'main') { if (role === 'acc') sets += 1; rest = Math.max(45, rest - 15); }
+  // Prioridade escolhida: +1 série nesses músculos
+  if (FOCUS_P[p.focus]?.has(slot.p) && build && role !== 'main') sets += 1;
+  if (role !== 'main') sets = Math.min(4, sets);
   if (slot.p === 'core' && phase !== 'forca') range = [10, 15];
   return { sets, range, rest, warm, iso, quality: phase === 'forca' && role === 'main' ? 'forca' : 'hiper' };
 }
@@ -357,7 +402,7 @@ function strengthSession() {
   const reasons = [];
   const exercises = [];
 
-  const slots = tpl.slots.slice(0, max);
+  const slots = applyFocus(tpl.slots, key, p).slice(0, max);
   const accIdx = slots.map((x, i) => x.role === 'acc' ? i : -1).filter(i => i >= 0);
   let mainCount = 0;
   slots.forEach((slot, i) => {
@@ -445,6 +490,7 @@ function strengthSession() {
 
   if (plan.phase === 'readapt') reasons.unshift(`Semana ${st.week} de ${st.weeks} da readaptação: pare cada série com 3–4 repetições sobrando.`);
   if (plan.phase === 'deload') reasons.unshift('Semana de descarga: metade das séries e cargas ~10% menores.');
+  if (p.focus && p.focus !== 'equilibrado' && ['hiper', 'intens', 'forca'].includes(plan.phase)) reasons.push(`Prioridade ${FOCUS[p.focus][0].toLowerCase()}: mais exercícios e séries para esses músculos.`);
   if (plan.volAdj > 0) reasons.push('Você marcou o último treino como leve: +1 série nos complementares.');
   if (plan.volAdj < 0) reasons.push('Último treino foi exaustivo: 1 série a menos nos complementares.');
 

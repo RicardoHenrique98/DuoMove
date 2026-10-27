@@ -10,10 +10,12 @@ import { isMain } from './techniques.js';
 const LOWER = new Set(['quadriceps', 'posterior', 'gluteos', 'adutores', 'panturrilha']);
 
 // Incremento de carga típico para cada tipo de exercício
+// Saltos menores para mulheres: a mesma progressão relativa com cargas absolutas menores
 function increment(ex) {
-  if (ex.equip === 'halter' || ex.equip === 'kettlebell') return 2;
-  if (LOWER.has(ex.muscle) && ex.equip !== 'polia') return 5;
-  return 2.5;
+  const f = state.profile.sex === 'f';
+  if (ex.equip === 'halter' || ex.equip === 'kettlebell') return f ? 1 : 2;
+  if (LOWER.has(ex.muscle) && ex.equip !== 'polia') return f ? 2.5 : 5;
+  return f ? 1 : 2.5;
 }
 
 const roundTo = (kg, step) => Math.max(step, Math.round(kg / step) * step);
@@ -89,7 +91,7 @@ export function suggest(exId, targets = [], ctx = {}) {
   const kg = Math.max(...kgs);
   if (!kg) return null;
   const inc = increment(ex);
-  const step = inc === 2 ? 1 : 2.5;
+  const step = inc >= 2.5 ? 2.5 : 1;
   const prev2 = sessions[1] ? working(sessions[1].e.sets) : [];
   const stalled = !allMin && prev2.length && prev2.some((s, i) => (s.reps || 0) < rangeAt(i)[0]) && Math.max(...prev2.map(s => s.kg || 0)) >= kg;
   const baseAt = i => kgs[i] || kgs.at(-1) || kg;

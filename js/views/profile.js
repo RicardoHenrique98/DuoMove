@@ -3,6 +3,7 @@ import { esc, fmtRest, fmtDate } from '../util.js';
 import { icon, menu, confirmBox, toast } from '../ui.js';
 import { rerender } from '../router.js';
 import { applyTheme } from '../theme.js';
+import { SEXES, FOCUS } from '../planner.js';
 
 const GOALS = ['Ganhar força', 'Ganhar massa muscular', 'Emagrecer', 'Ganhar condicionamento', 'Melhorar saúde e bem-estar', 'Preparar-me para uma prova'];
 
@@ -11,6 +12,8 @@ export function render() {
   return `<div class="page-head"><div><div class="eyebrow">Seu espaço</div><h1>Perfil</h1></div></div>
     <section class="card">
       <label class="field"><span>Como quer ser chamado?</span><input data-f="name" value="${esc(p.name)}" maxlength="40" placeholder="Seu nome"></label>
+      <label class="field"><span>Sexo</span><select data-f="sex"><option value="">Não informado</option>${Object.entries(SEXES).map(([k, v]) => `<option value="${k}" ${p.sex === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="field"><span>Prioridade do treino</span><select data-f="focus">${Object.entries(FOCUS).map(([k, v]) => `<option value="${k}" ${(p.focus || 'equilibrado') === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></label>
       <label class="field"><span>Objetivo principal</span><select data-f="goal">${GOALS.map(g => `<option ${p.goal === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
       <label class="field"><span>Objetivo secundário</span><select data-f="goal2"><option value="">Nenhum</option>${GOALS.filter(g => g !== p.goal).map(g => `<option ${p.goal2 === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
       <button class="setting" data-act="rest"><span>Descanso padrão entre séries</span><b>${fmtRest(p.rest)}</b></button>
@@ -31,7 +34,7 @@ export function render() {
 
 export function input(el) {
   const f = el.dataset.f;
-  if (f === 'name' || f === 'goal' || f === 'goal2') state.profile[f] = el.value;
+  if (['name', 'goal', 'goal2', 'sex', 'focus'].includes(f)) state.profile[f] = el.value;
   if (f === 'goal' && state.profile.goal2 === el.value) state.profile.goal2 = '';
   if (f === 'sound') state.profile.sound = el.checked;
   if (f === 'coach') state.profile.coach = el.checked;
