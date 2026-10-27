@@ -25,7 +25,8 @@ function fresh() {
   return {
     v: 2,
     presetsV: PRESETS_VERSION,
-    profile: { name: '', goal: 'Ganhar força', rest: 90, sound: true },
+    profile: { name: '', goal: 'Ganhar massa muscular', rest: 90, sound: true },
+    plan: null,
     routines: PRESET_ROUTINES.map(routineFromPreset),
     workouts: [],
     custom: [],

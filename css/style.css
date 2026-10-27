@@ -90,6 +90,7 @@ button.card:active { background: var(--panel2); }
 .month small { color: var(--muted); }
 
 /* Rotinas */
+.quick { display: grid; gap: 10px; }
 .quick-btn { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; color: var(--lime); }
 .quick-btn .ic { grid-row: span 2; }
 .quick-btn b { color: var(--text); }
@@ -266,3 +267,45 @@ body.no-tabs .tabbar { display: none; }
 @media (min-width: 700px) {
   .tabbar { left: 50%; transform: translateX(-50%); width: 640px; border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; }
 }
+
+/* Plano do treinador */
+.feedback { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.fb-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 4px; }
+.fb { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
+.fb small { display: block; color: var(--muted); font-size: 11.5px; }
+.fb:active { border-color: var(--lime); }
+.phase-change { display: flex; flex-direction: column; gap: 2px; }
+.phase-change small { color: var(--lime); font-weight: 800; letter-spacing: 1px; font-size: 11px; }
+.phase-change b { font-size: 18px; }
+.phase-change p { color: var(--muted); font-size: 13.5px; }
+.today { display: flex; flex-direction: column; gap: 10px; border-color: #3d4a33; background: linear-gradient(150deg, #1f2a19, var(--panel) 70%); }
+.phase-pill { align-self: flex-start; display: inline-flex; gap: 6px; align-items: center; font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; background: #2c3a1f; color: var(--lime); }
+.phase-pill.blue { background: #1c2a36; color: var(--blue); }
+.phase-pill.purple { background: #2a2238; color: var(--purple); }
+.phase-pill.orange { background: #36261a; color: var(--orange); }
+.phase-pill.muted { background: var(--panel3); color: var(--muted); }
+.today h2 { font-size: 22px; letter-spacing: -.5px; }
+.today ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 13.5px; }
+.today ul small { color: var(--muted); }
+.why { display: grid; gap: 6px; }
+.why p { font-size: 13px; color: #d9e6b8; display: flex; gap: 7px; }
+.why .ic { color: var(--lime); margin-top: 1px; }
+.progress-bar { height: 6px; border-radius: 6px; background: var(--panel3); overflow: hidden; }
+.progress-bar i { display: block; height: 100%; background: var(--lime); border-radius: 6px; }
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.tl { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding-bottom: 14px; position: relative; }
+.tl::before { content: ''; position: absolute; left: 8px; top: 18px; bottom: 0; width: 2px; background: var(--line); }
+.tl:last-child::before { display: none; }
+.tl i { width: 18px; height: 18px; border-radius: 50%; background: var(--panel3); border: 2px solid var(--line); margin-top: 2px; }
+.tl.now i { background: var(--lime); border-color: var(--lime); }
+.tl.done i { background: #5d6f3a; border-color: #5d6f3a; }
+.tl small { display: block; color: var(--muted); font-size: 12.5px; }
+.wizard { display: flex; flex-direction: column; gap: 14px; }
+.wizard h2 { font-size: 24px; letter-spacing: -.6px; }
+.opts { display: grid; gap: 8px; }
+.opt { display: block; width: 100%; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font-weight: 700; }
+.opt small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; margin-top: 2px; }
+.opt.on { border-color: var(--lime); background: #24301c; }
+.steps { display: flex; gap: 5px; }
+.steps i { flex: 1; height: 4px; border-radius: 4px; background: var(--panel3); }
+.steps i.on { background: var(--lime); }

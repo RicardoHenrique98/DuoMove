@@ -129,6 +129,13 @@ export const EXERCISES = [
   E('bird-dog', 'Bird dog', 'abdomen', 'corporal', 'corpo'),
   E('russian-twist', 'Russian twist', 'abdomen', 'corporal', 'corpo'),
   E('roda-abdominal', 'Roda abdominal', 'abdomen', 'corporal', 'corpo'),
+  // Peso corporal (treino em casa)
+  E('flexao-pike', 'Flexão pike (ombros)', 'ombros', 'corporal', 'corpo'),
+  E('remada-invertida', 'Remada invertida (mesa ou barra baixa)', 'costas', 'corporal', 'corpo'),
+  E('afundo-corpo', 'Afundo (peso corporal)', 'quadriceps', 'corporal', 'corpo'),
+  E('panturrilha-corpo', 'Panturrilha em pé (degrau)', 'panturrilha', 'corporal', 'corpo'),
+  E('panturrilha-halter', 'Panturrilha unilateral (halter)', 'panturrilha', 'halter'),
+  E('superman', 'Superman', 'costas', 'corporal', 'corpo'),
   // Corpo inteiro / funcional
   E('burpee', 'Burpee', 'corpo', 'corporal', 'corpo'),
   E('polichinelo', 'Polichinelo', 'corpo', 'corporal', 'tempo'),
@@ -179,6 +186,8 @@ const IMG = {
   'panturrilha-sentado': 'Seated_Calf_Raise', 'panturrilha-leg': 'Calf_Press_On_The_Leg_Press_Machine', prancha: 'Plank',
   'prancha-lateral': 'Side_Bridge', abdominal: 'Crunches', 'elevacao-pernas': 'Flat_Bench_Lying_Leg_Raise', 'abdominal-polia': 'Cable_Crunch',
   'dead-bug': 'Dead_Bug', 'russian-twist': 'Russian_Twist', 'roda-abdominal': 'Ab_Roller', 'pular-corda': 'Rope_Jumping',
+  'remada-invertida': 'Inverted_Row', 'afundo-corpo': 'Elevated_Back_Lunge', 'panturrilha-corpo': 'Rocking_Standing_Calf_Raise',
+  'panturrilha-halter': 'Calf_Raise_On_A_Dumbbell', superman: 'Superman', 'flexao-pike': 'Handstand_Push-Ups',
   esteira: 'Running_Treadmill', caminhada: 'Walking_Treadmill', bike: 'Bicycling_Stationary', pedal: 'Bicycling',
   eliptico: 'Elliptical_Trainer', remo: 'Rowing_Stationary', escada: 'Stairmaster', corrida: 'Jogging_Treadmill'
 };

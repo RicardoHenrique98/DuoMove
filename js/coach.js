@@ -3,7 +3,7 @@
 // 2) Bateu o topo da faixa em todas as séries → sobe a carga e volta para o início da faixa.
 // 3) Duas sessões seguidas abaixo do mínimo → recua ~10% e reconstrói.
 import { state, getEx } from './store.js';
-import { exerciseSessions } from './stats.js';
+import { exerciseSessions, e1rm } from './stats.js';
 import { fmtNum } from './util.js';
 import { isMain } from './techniques.js';
 
@@ -20,6 +20,22 @@ const roundTo = (kg, step) => Math.max(step, Math.round(kg / step) * step);
 const kgTxt = kg => `${fmtNum(kg, 2)} kg`;
 const working = sets => sets.filter(s => isMain(s) && s.done !== false);
 
+// Aquecimento ~50%; drop sets descem ~20% a partir da série anterior; rest-pause e cluster mantêm a carga
+function mapSets(targets, count, kgFor, repFor, step) {
+  const tgt = i => targets[i] || targets.at(-1) || { type: 'n' };
+  let n = 0, prevKg = null;
+  const firstKg = kgFor(0);
+  return Array.from({ length: count }, (_, i) => {
+    const t = tgt(i);
+    if (t.type === 'w') return { kg: roundTo(firstKg * 0.5, step), reps: 10 };
+    if (t.type === 'd') { prevKg = prevKg ? roundTo(prevKg * 0.8, 0.5) : null; return prevKg ? { kg: prevKg } : {}; }
+    if (t.type === 'r' || t.type === 'c') return prevKg ? { kg: prevKg } : {};
+    const k = n++;
+    prevKg = kgFor(k);
+    return { kg: prevKg, reps: t.reps && !t.rmax ? t.reps : repFor(k) };
+  });
+}
+
 function defaultRange(reps) {
   const avg = reps.reduce((a, b) => a + b, 0) / (reps.length || 1);
   return avg <= 6 ? [4, 6] : avg <= 12 ? [8, 12] : [12, 20];
@@ -29,7 +45,7 @@ function defaultRange(reps) {
  * targets: séries-alvo da rotina ([{type, reps, rmax, sec}]).
  * Devolve { tone: 'up'|'keep'|'down'|'new', msg, sets: [{kg, reps, sec}] } ou null.
  */
-export function suggest(exId, targets = []) {
+export function suggest(exId, targets = [], ctx = {}) {
   if (state.profile.coach === false) return null;
   const ex = getEx(exId);
   if (!['peso', 'corpo', 'tempo'].includes(ex.type)) return null;
@@ -45,7 +61,7 @@ export function suggest(exId, targets = []) {
 
   if (!last.length) {
     if (ex.type !== 'peso' || !lo) return null;
-    return { tone: 'new', msg: `Primeira vez: escolha uma carga que permita ${range} repetições com 1–2 sobrando.`, sets: [] };
+    return { tone: 'new', msg: `Primeira vez: escolha uma carga que permita ${range} repetições com ${ctx.rir || '1–2'} sobrando.`, sets: [] };
   }
 
   if (ex.type === 'tempo') {
@@ -78,6 +94,20 @@ export function suggest(exId, targets = []) {
   const stalled = !allMin && prev2.length && prev2.some((s, i) => (s.reps || 0) < rangeAt(i)[0]) && Math.max(...prev2.map(s => s.kg || 0)) >= kg;
   const baseAt = i => kgs[i] || kgs.at(-1) || kg;
 
+  // Semana de descarga: mesma faixa, ~10% menos carga
+  if (ctx.deload) {
+    const nk = roundTo(kg * 0.9, step);
+    return { tone: 'down', msg: `Descarga: use ${kgTxt(nk)}, foco em técnica e velocidade. Sobre com ${ctx.rir || '4'} repetições.`, sets: mapSets(targets, count, () => nk, i => rangeAt(i)[0], step) };
+  }
+  // Faixa de repetições mudou muito (nova fase)? Estima a carga pelo 1RM em vez de seguir a última
+  const avg = reps.reduce((x, y) => x + y, 0) / reps.length;
+  if (lo && (avg > hi + 3 || avg < lo - 3)) {
+    const best = Math.max(...last.map(s => e1rm(s.kg, s.reps)));
+    const rir = parseInt(ctx.rir, 10) || 2;
+    const nk = roundTo(best / (1 + ((lo + hi) / 2 + rir) / 30), step);
+    return { tone: 'new', msg: `Faixa nova (${range} repetições): comece com ~${kgTxt(nk)} e ajuste para sobrar ${ctx.rir || '1–2'}.`, sets: mapSets(targets, count, () => nk, i => rangeAt(i)[0], step) };
+  }
+
   let tone, msg, kgFor, repFor;
   if (allTop) {
     tone = 'up'; kgFor = i => baseAt(i) + inc; repFor = i => rangeAt(i)[0];
@@ -93,17 +123,6 @@ export function suggest(exId, targets = []) {
     msg = `Mantenha ${kgTxt(kg)} e busque pelo menos ${lo} repetições em todas as séries.`;
   }
 
-  // Aquecimento ~50%; drop sets descem ~20% a partir da série anterior; rest-pause e cluster mantêm a carga
-  let n = 0, prevKg = null;
-  const firstKg = kgFor(0);
-  const sets = Array.from({ length: count }, (_, i) => {
-    const t = tgt(i);
-    if (t.type === 'w') return { kg: roundTo(firstKg * 0.5, step), reps: 10 };
-    if (t.type === 'd') { prevKg = prevKg ? roundTo(prevKg * 0.8, 0.5) : null; return prevKg ? { kg: prevKg } : {}; }
-    if (t.type === 'r' || t.type === 'c') return prevKg ? { kg: prevKg } : {};
-    const k = n++;
-    prevKg = kgFor(k);
-    return { kg: prevKg, reps: repFor(k) };
-  });
+  const sets = mapSets(targets, count, kgFor, repFor, step);
   return { tone, msg, sets };
 }

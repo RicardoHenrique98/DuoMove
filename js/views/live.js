@@ -7,6 +7,7 @@ import { go } from '../router.js';
 import { newSet, addExercisesToActive, discardActive, finishActive, updateRoutineFrom, routineFromWorkout } from '../workout.js';
 import { workoutVolume, newRecords } from '../stats.js';
 import { openPicker } from './picker.js';
+import { FEEDBACK, PHASES, afterPlanWorkout } from '../planner.js';
 import { SET_TYPES, TECHNIQUES, applyTechnique, restAfter, isMain, groupName } from '../techniques.js';
 
 export const COLS = {
@@ -300,13 +301,26 @@ export function unlink(list, e) {
 function showSummary(w) {
   const recs = newRecords(w), r = state.routines.find(x => x.id === w.routineId);
   const sets = w.exercises.reduce((n, e) => n + e.sets.length, 0);
+  let answered = false;
+  // Treino do plano: o feedback ajusta os próximos treinos
+  const planBlock = w.plan ? `<div class="feedback" id="fb"><b>Como foi o treino?</b><small class="muted">O treinador usa isso para ajustar os próximos.</small>
+      <div class="fb-grid">${FEEDBACK.map(([v, l, d]) => `<button class="fb" data-act="fb" data-v="${v}"><b>${l}</b><small>${d}</small></button>`).join('')}</div></div>` : '';
   sheet(`<div class="done-hero">${icon('trophy', 36)}<h3>Treino concluído!</h3><p class="muted">${state.workouts.length}º treino registrado no Duo Move.</p></div>
     <div class="summary-grid"><div><small>Duração</small><b>${fmtDuration(w.end - w.start)}</b></div><div><small>Volume</small><b>${fmtKg(workoutVolume(w))}</b></div><div><small>Séries</small><b>${sets}</b></div></div>
     ${recs.length ? `<div class="records"><h4>${icon('trophy', 16)} ${plural(recs.length, 'recorde pessoal', 'recordes pessoais')}</h4>${recs.map(x => `<div class="rec-line"><b>${esc(x.ex.name)}</b><span>${esc(x.label)}</span></div>`).join('')}</div>` : ''}
-    ${r ? `<button class="btn soft block" data-act="updRoutine">Atualizar a rotina "${esc(r.name)}" com estes valores</button>`
+    ${planBlock}
+    ${w.plan ? '' : r ? `<button class="btn soft block" data-act="updRoutine">Atualizar a rotina "${esc(r.name)}" com estes valores</button>`
         : `<button class="btn soft block" data-act="saveRoutine">Salvar como nova rotina</button>`}
     <button class="btn primary block" data-act="close">Fechar</button>`, {
     updRoutine: (el, api) => { updateRoutineFrom(w); api.close(); },
-    saveRoutine: (el, api) => { state.routines.push(routineFromWorkout(w)); save(); api.close(); toast('Rotina criada'); }
-  });
+    saveRoutine: (el, api) => { state.routines.push(routineFromWorkout(w)); save(); api.close(); toast('Rotina criada'); },
+    fb: (el, api) => {
+      if (answered) return;
+      answered = true;
+      const change = afterPlanWorkout(w, +el.dataset.v);
+      api.el.querySelector('#fb').innerHTML = change
+        ? `<div class="phase-change"><small>NOVA FASE</small><b>${esc(PHASES[change.phase].name)}</b><p>${esc(change.why)}</p></div>`
+        : `<b>Anotado!</b><small class="muted">Seu próximo treino já foi ajustado.</small>`;
+    }
+  }, { onClose: () => { if (w.plan && !answered) afterPlanWorkout(w, 0); } });
 }

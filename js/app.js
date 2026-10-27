@@ -8,6 +8,8 @@ import * as history from './views/history.js';
 import * as progress from './views/progress.js';
 import * as profile from './views/profile.js';
 import * as live from './views/live.js';
+import * as plan from './views/plan.js';
+import { checkBreak } from './planner.js';
 
 route(/^\/inicio$/, home);
 route(/^\/rotinas$/, routines);
@@ -19,6 +21,8 @@ route(/^\/exercicios$/, progress.library);
 route(/^\/exercicio\/([^/]+)$/, progress.exercise);
 route(/^\/perfil$/, profile);
 route(/^\/treino$/, live);
+route(/^\/plano$/, plan.page);
+route(/^\/plano\/novo$/, plan.wizard);
 
 const TABS = [['/inicio', 'home', 'Início'], ['/rotinas', 'list', 'Treinar'], ['/historico', 'clock', 'Histórico'], ['/progresso', 'chart', 'Progresso'], ['/perfil', 'user', 'Perfil']];
 
@@ -118,7 +122,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) save(
 
 // Abre direto no treino em andamento se o app foi fechado no meio dele
 if (state.active && !state.active.editing && (!location.hash || location.hash === '#/inicio')) location.replace('#/treino');
+// Ficou muito tempo sem treinar? O plano volta para uma readaptação
+const brk = checkBreak();
 rerender();
+if (brk) toast(brk.why);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));

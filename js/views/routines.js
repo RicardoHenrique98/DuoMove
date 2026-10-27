@@ -5,6 +5,7 @@ import { icon, menu, confirmBox, toast, sheet } from '../ui.js';
 import { go, back } from '../router.js';
 import { startFromRoutine, startFromExercises } from '../workout.js';
 import { openPicker } from './picker.js';
+import { todayActions } from './plan.js';
 import { COLS, chooseTechnique, linkWithNext, unlink, techList } from './live.js';
 import { applyTechnique, isMain, SET_TYPES, TECHNIQUES, groupName } from '../techniques.js';
 
@@ -15,6 +16,7 @@ export function render() {
   return `<div class="page-head"><div><div class="eyebrow">Treinar</div><h1>Rotinas</h1></div>
       <button class="btn primary sm" data-act="newRoutine">${icon('plus', 16)} Nova</button></div>
     <div class="quick">
+      <button class="card quick-btn" data-act="planPage">${icon('bulb', 22)}<b>${state.plan ? 'Plano do treinador' : 'Criar plano com o treinador'}</b><small>${state.plan ? 'Treinos montados e ajustados automaticamente' : 'O app monta e ajusta seus treinos sozinho'}</small></button>
       <button class="card quick-btn" data-act="byGroup">${icon('dumbbell', 22)}<b>Montar por grupo muscular</b><small>Escolha os músculos e o app monta o treino</small></button>
     </div>
     <div class="chips scroll-x"><button class="chip ${!kindFilter ? 'on' : ''}" data-act="kind" data-k="">Todas</button>
@@ -63,6 +65,7 @@ function buildFromGroups(groups) {
 }
 
 export const actions = {
+  planPage: () => state.plan ? go('/plano') : todayActions.planSetup(),
   kind: (el, rerender) => { kindFilter = el.dataset.k; rerender(); },
   start: el => startFromRoutine(byId(el.dataset.id)),
   edit: el => go('/rotina/' + el.dataset.id),

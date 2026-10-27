@@ -4,6 +4,7 @@ import { icon } from '../ui.js';
 import { go } from '../router.js';
 import { startEmpty, startFromRoutine } from '../workout.js';
 import { weekly, weekStreak, workoutVolume, workoutSets } from '../stats.js';
+import { todayCard, todayActions } from './plan.js';
 
 export function workoutCard(w) {
   const lines = w.exercises.slice(0, 3).map(e => `<li>${e.sets.length} × ${esc(getEx(e.exId).name)}</li>`).join('');
@@ -25,19 +26,21 @@ export function render() {
   const routines = state.routines.slice(0, 3);
   return `<div class="page-head"><div><div class="eyebrow">${fmtDate(Date.now(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
       <h1>${hello}${name ? ', ' + esc(name.split(' ')[0]) : ''}!</h1></div></div>
+    ${todayCard()}
     <section class="card week">
       <div class="row between"><b>Sua semana</b><span class="streak">${icon('fire', 16)} ${plural(streak, 'semana seguida', 'semanas seguidas')}</span></div>
       <div class="days">${dayDots}</div>
       <div class="kpis"><div><b>${wk.count}</b><small>treinos</small></div><div><b>${fmtKg(wk.volume)}</b><small>volume</small></div><div><b>${wk.minutes}</b><small>minutos</small></div></div>
     </section>
-    <button class="btn primary block lg" data-act="startEmpty">${icon('plus', 20)} Começar treino livre</button>
-    <div class="section-head"><h2>Suas rotinas</h2><button class="link" data-act="goRoutines">Ver todas</button></div>
+    <button class="btn soft block" data-act="startEmpty">${icon('plus', 18)} Treino livre</button>
+    <div class="section-head"><h2>Fichas prontas</h2><button class="link" data-act="goRoutines">Ver todas</button></div>
     ${routines.map(r => `<div class="card r-mini"><div class="grow" data-act="editRoutine" data-id="${r.id}"><b>${esc(r.name)}</b><small>${esc(r.exercises.map(e => getEx(e.exId).name).join(' · '))}</small></div>
       <button class="btn primary sm" data-act="startRoutine" data-id="${r.id}">${icon('play', 14)} Iniciar</button></div>`).join('')}
     ${last ? `<div class="section-head"><h2>Último treino</h2><button class="link" data-act="goHistory">Histórico</button></div>${workoutCard(last)}` : ''}`;
 }
 
 export const actions = {
+  ...todayActions,
   startEmpty: () => startEmpty(),
   startRoutine: el => startFromRoutine(state.routines.find(r => r.id === el.dataset.id)),
   editRoutine: el => go('/rotina/' + el.dataset.id),

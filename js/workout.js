@@ -12,8 +12,8 @@ const pick = (s, keys = FIELDS) => Object.fromEntries(keys.filter(f => s[f] != n
 export const newSet = (target = {}, type = 'n') => ({ id: uid(), type, kg: null, reps: null, sec: null, km: null, min: null, t: pick(target, TARGET), done: false });
 
 // Cria o exercício do treino já com a sugestão do treinador nas séries-alvo
-export function newExercise(exId, sets = [{}], rest, tip = '') {
-  const c = suggest(exId, sets);
+export function newExercise(exId, sets = [{}], rest, tip = '', ctx = {}) {
+  const c = suggest(exId, sets, ctx);
   return {
     id: uid(), exId, notes: '', tip,
     coach: c ? { tone: c.tone, msg: c.msg } : null,
@@ -42,6 +42,16 @@ function begin(w) {
 export async function startFromRoutine(r) {
   if (!(await canStart())) return;
   begin({ name: r.name, routineId: r.id, kind: r.kind, exercises: r.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest, e.notes), group: e.group || null, tech: e.tech || null })) });
+}
+
+// Treino montado pelo plano do treinador
+export async function startPlanSession(sess) {
+  if (!(await canStart())) return;
+  const ctx = { rir: sess.status.rir, deload: sess.phase === 'deload' };
+  begin({
+    name: sess.name, kind: 'musculacao', plan: { phase: sess.phase, key: sess.key, week: sess.status.week },
+    exercises: sess.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest, '', ctx), group: e.group, tech: e.tech }))
+  });
 }
 
 export async function startEmpty() {
@@ -84,10 +94,10 @@ export function discardActive() {
 export function finishActive() {
   const a = state.active;
   const exercises = a.exercises
-    .map(e => ({ id: e.id, exId: e.exId, rest: e.rest, notes: e.notes, group: e.group || null, tech: e.tech || null, sets: e.sets.filter(s => s.done).map(s => ({ type: s.type, ...pick(s), done: true })) }))
+    .map(e => ({ id: e.id, exId: e.exId, rest: e.rest, notes: e.notes, group: e.group || null, tech: e.tech || null, coach: e.coach?.tone || null, sets: e.sets.filter(s => s.done).map(s => ({ type: s.type, ...pick(s), done: true })) }))
     .filter(e => e.sets.length);
   if (!exercises.length) return null;
-  const w = { id: a.editing || a.id, name: a.name.trim() || 'Treino', routineId: a.routineId || null, kind: a.kind || null, notes: a.notes || '', start: a.start, end: a.editing ? a.end : Date.now(), exercises };
+  const w = { id: a.editing || a.id, name: a.name.trim() || 'Treino', routineId: a.routineId || null, kind: a.kind || null, plan: a.plan || null, notes: a.notes || '', start: a.start, end: a.editing ? a.end : Date.now(), exercises };
   if (a.editing) state.workouts = state.workouts.map(x => x.id === a.editing ? w : x);
   else state.workouts.push(w);
   state.active = null;
