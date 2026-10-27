@@ -189,7 +189,7 @@ export const KINDS = { musculacao: 'Musculação', corrida: 'Corrida', pedal: 'P
 // Fichas prontas, montadas com base nas recomendações atuais de hipertrofia e força:
 // cada músculo 2x por semana, ~10–20 séries semanais, compostos primeiro,
 // faixas de repetições com descanso maior nos multiarticulares e séries a 1–3 reps da falha.
-export const PRESETS_VERSION = 2;
+export const PRESETS_VERSION = 3;
 
 // Atalhos: X(exercício, séries, repMín, repMáx, descanso, aquecimentos, dica)
 const X = (exId, n, rmin, rmax, rest, warm = 0, notes = '') => ({
@@ -199,8 +199,8 @@ const X = (exId, n, rmin, rmax, rest, warm = 0, notes = '') => ({
 const T = (exId, n, sec, rest = 45, notes = '') => ({ exId, rest, notes, sets: Array.from({ length: n }, () => ({ type: 'n', sec })) });
 const C = (exId, n, min, rest = 0, notes = '', km = null) => ({ exId, rest, notes, sets: Array.from({ length: n }, () => ({ type: 'n', min, ...(km ? { km } : {}) })) });
 
-const RIR = 'Pare com 1–2 repetições “sobrando”. Bateu o topo da faixa em todas as séries? Suba a carga.';
-const WARM = 'Faça a série de aquecimento leve (A) antes. ' + RIR;
+const RIR = 'Pare com 1–2 repetições “sobrando” (sem chegar à falha).';
+const WARM = 'Comece pela série de aquecimento leve (A). ' + RIR;
 
 export const PROGRAMS = [
   { id: 'fb3', name: 'Full-body 3x · Iniciante', desc: '3 dias por semana (ex.: seg, qua, sex), alternando A, B e C. Corpo todo em cada treino, ~50 min.' },

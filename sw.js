@@ -1,7 +1,7 @@
 // Funciona offline: arquivos do app em cache; imagens dos exercícios guardadas quando vistas
-const VERSION = 'duo-move-v2.1.0';
+const VERSION = 'duo-move-v2.2.0';
 const CORE = ['./', './index.html', './css/style.css', './manifest.webmanifest', './icon.png',
-  './js/app.js', './js/router.js', './js/store.js', './js/data.js', './js/util.js', './js/ui.js', './js/stats.js', './js/charts.js', './js/workout.js',
+  './js/app.js', './js/router.js', './js/store.js', './js/data.js', './js/util.js', './js/ui.js', './js/stats.js', './js/charts.js', './js/workout.js', './js/coach.js',
   './js/views/home.js', './js/views/routines.js', './js/views/history.js', './js/views/progress.js', './js/views/profile.js', './js/views/live.js', './js/views/picker.js'];
 const IMAGES = 'duo-move-img';
 

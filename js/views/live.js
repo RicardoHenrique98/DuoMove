@@ -14,6 +14,7 @@ export const COLS = {
   tempo: [['sec', 'SEG']],
   cardio: [['km', 'KM'], ['min', 'MIN']]
 };
+const COACH_ICON = { up: 'up', keep: 'check', down: 'down', new: 'bulb' };
 const REQUIRED = { peso: ['reps'], corpo: ['reps'], tempo: ['sec'], cardio: ['min'] };
 
 export function fmtSet(s, type) {
@@ -30,6 +31,12 @@ const a = () => state.active;
 const findEx = el => a().exercises.find(e => e.id === el.closest('[data-ex]')?.dataset.ex);
 const findSet = (el, e) => e?.sets.find(s => s.id === el.closest('[data-set]')?.dataset.set);
 const prevFor = e => previousSets(e.exId, a().editing ? a().start : Infinity, a().editing);
+// Série equivalente da última vez: aquecimento com aquecimento, série válida com série válida
+const isW = s => s.type === 'w';
+function prevAt(e, s, prev = prevFor(e)) {
+  const same = prev.filter(p => isW(p) === isW(s));
+  return same[e.sets.filter(x => isW(x) === isW(s)).indexOf(s)];
+}
 
 let saveTimer;
 const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); };
@@ -43,14 +50,15 @@ function statsHtml() {
 }
 
 function exerciseCard(e) {
-  const ex = getEx(e.exId), cols = COLS[ex.type], prev = prevFor(e);
+  const ex = getEx(e.exId), cols = COLS[ex.type], prevAll = prevFor(e);
   let n = 0;
   const rows = e.sets.map((s, i) => {
     if (s.type !== 'w') n++;
-    const ph = f => f === 'reps' && s.t?.rmax ? `${s.t.reps}–${s.t.rmax}` : fmtNum(s.t?.[f] ?? prev[i]?.[f] ?? '', 2);
+    const pv = prevAt(e, s, prevAll);
+    const ph = f => f === 'reps' && s.t?.rmax && !s.t.coach ? `${s.t.reps}–${s.t.rmax}` : fmtNum(s.t?.[f] ?? pv?.[f] ?? '', 2);
     return `<div class="set-row c${cols.length} ${s.done ? 'done' : ''}" data-set="${s.id}">
       <button class="set-tag t-${s.type}" data-act="setMenu" aria-label="Tipo da série">${setTag(s, n)}</button>
-      <button class="prev" data-act="copyPrev" data-i="${i}" ${prev[i] ? '' : 'disabled'}>${esc(fmtSet(prev[i], ex.type))}</button>
+      <button class="prev" data-act="copyPrev" ${pv ? '' : 'disabled'}>${esc(fmtSet(pv, ex.type))}</button>
       ${cols.map(([f, label]) => `<input data-f="${f}" inputmode="${f === 'reps' || f === 'sec' ? 'numeric' : 'decimal'}" enterkeyhint="next" autocomplete="off" aria-label="${label} série ${i + 1}" placeholder="${esc(ph(f))}" value="${s[f] != null ? esc(fmtNum(s[f], 2)) : ''}">`).join('')}
       <button class="check" data-act="check" aria-label="Concluir série" aria-pressed="${s.done}">${icon('check', 18)}</button>
     </div>`;
@@ -60,6 +68,7 @@ function exerciseCard(e) {
       <button class="ex-title" data-act="exHistory"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')}</small></button>
       <button class="icon-btn" data-act="exMenu" aria-label="Opções do exercício">${icon('more')}</button>
     </div>
+    ${e.coach ? `<p class="coach c-${e.coach.tone}">${icon(COACH_ICON[e.coach.tone], 15)}<span><b>Treinador:</b> ${esc(e.coach.msg)}</span></p>` : ''}
     ${e.tip ? `<p class="tip">${icon('bulb', 15)}<span>${esc(e.tip)}</span></p>` : ''}
     <input class="note" data-f="note" placeholder="Observação (ajuste do banco, pegada...)" value="${esc(e.notes)}" maxlength="140">
     ${ex.type !== 'cardio' ? `<button class="rest-chip" data-act="exRest">${icon('timer', 15)} Descanso: ${fmtRest(e.rest)}</button>` : ''}
@@ -124,7 +133,7 @@ export const actions = {
     unlockAudio();
     const e = findEx(el), s = findSet(el, e), ex = getEx(e.exId);
     if (!s.done) {
-      const prev = prevFor(e)[e.sets.indexOf(s)];
+      const prev = prevAt(e, s);
       for (const [f] of COLS[ex.type]) s[f] ??= s.t?.[f] ?? prev?.[f] ?? null;
       if (REQUIRED[ex.type].some(f => s[f] == null)) {
         toast(ex.type === 'tempo' ? 'Informe o tempo da série' : ex.type === 'cardio' ? 'Informe os minutos' : 'Informe as repetições');
@@ -139,7 +148,7 @@ export const actions = {
   },
 
   copyPrev(el, rerender) {
-    const e = findEx(el), s = findSet(el, e), p = prevFor(e)[+el.dataset.i];
+    const e = findEx(el), s = findSet(el, e), p = prevAt(e, s);
     if (!p) return;
     for (const [f] of COLS[getEx(e.exId).type]) s[f] = p[f] ?? null;
     save(); rerender();
@@ -183,7 +192,7 @@ export const actions = {
       { label: 'Remover exercício', value: 'del', icon: 'trash', danger: true }
     ]);
     if (v === 'swap') return openPicker({ title: `Trocar ${ex.name}`, multi: false, muscle: ex.muscle, onDone: ([id]) => {
-      e.exId = id;
+      e.exId = id; e.coach = null;
       e.sets.forEach(s => { s.t = {}; if (getEx(id).type !== ex.type) { s.kg = s.reps = s.sec = s.km = s.min = null; s.done = false; } });
       save(); rerender(); toast('Exercício trocado');
     } });
@@ -212,7 +221,7 @@ export const actions = {
       ]);
       if (!v) return;
       if (v === 'all') for (const { e, s } of pending) {
-        const type = getEx(e.exId).type, prev = prevFor(e)[e.sets.indexOf(s)];
+        const type = getEx(e.exId).type, prev = prevAt(e, s);
         for (const [f] of COLS[type]) s[f] ??= s.t?.[f] ?? prev?.[f] ?? null;
         if (REQUIRED[type].every(f => s[f] != null)) s.done = true;
       }

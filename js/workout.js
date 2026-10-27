@@ -3,6 +3,7 @@ import { state, save, getEx } from './store.js';
 import { uid } from './util.js';
 import { go } from './router.js';
 import { confirmBox, toast } from './ui.js';
+import { suggest } from './coach.js';
 
 const FIELDS = ['kg', 'reps', 'sec', 'km', 'min'];
 const TARGET = [...FIELDS, 'rmax'];
@@ -10,11 +11,20 @@ const pick = (s, keys = FIELDS) => Object.fromEntries(keys.filter(f => s[f] != n
 
 export const newSet = (target = {}, type = 'n') => ({ id: uid(), type, kg: null, reps: null, sec: null, km: null, min: null, t: pick(target, TARGET), done: false });
 
-export const newExercise = (exId, sets = [{}], rest, tip = '') => ({
-  id: uid(), exId, notes: '', tip,
-  rest: rest ?? (getEx(exId).type === 'cardio' ? 0 : state.profile.rest),
-  sets: sets.map(s => newSet(s, s.type || 'n'))
-});
+// Cria o exercício do treino já com a sugestão do treinador nas séries-alvo
+export function newExercise(exId, sets = [{}], rest, tip = '') {
+  const c = suggest(exId, sets);
+  return {
+    id: uid(), exId, notes: '', tip,
+    coach: c ? { tone: c.tone, msg: c.msg } : null,
+    rest: rest ?? (getEx(exId).type === 'cardio' ? 0 : state.profile.rest),
+    sets: sets.map((s, i) => {
+      const set = newSet(s, s.type || 'n');
+      if (c?.sets[i]) { Object.assign(set.t, c.sets[i]); set.t.coach = true; }
+      return set;
+    })
+  };
+}
 
 async function canStart() {
   if (!state.active) return true;

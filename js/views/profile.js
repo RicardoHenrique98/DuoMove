@@ -12,6 +12,7 @@ export function render() {
       <label class="field"><span>Como quer ser chamado?</span><input data-f="name" value="${esc(p.name)}" maxlength="40" placeholder="Seu nome"></label>
       <label class="field"><span>Objetivo principal</span><select data-f="goal">${GOALS.map(g => `<option ${p.goal === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
       <button class="setting" data-act="rest"><span>Descanso padrão entre séries</span><b>${fmtRest(p.rest)}</b></button>
+      <label class="setting"><span>Sugestões de carga do treinador</span><input type="checkbox" data-f="coach" ${p.coach !== false ? 'checked' : ''}></label>
       <label class="setting"><span>Som e vibração ao fim do descanso</span><input type="checkbox" data-f="sound" ${p.sound ? 'checked' : ''}></label>
     </section>
     <section class="card">
@@ -29,6 +30,7 @@ export function input(el) {
   const f = el.dataset.f;
   if (f === 'name' || f === 'goal') state.profile[f] = el.value;
   if (f === 'sound') state.profile.sound = el.checked;
+  if (f === 'coach') state.profile.coach = el.checked;
   if (f === 'import') return importFile(el.files[0]);
   save();
 }
