@@ -128,7 +128,8 @@ function nextPhase(plan, p) {
   if (plan.phase === 'hiper') return p.level !== 'iniciante' || plan.blocks >= 1 ? 'intens' : 'deload';
   if (plan.phase === 'intens' || plan.phase === 'forca') return 'deload';
   // Depois da descarga: força uma vez por ciclo para quem busca força; senão novo ciclo de hipertrofia
-  return p.goal === 'Ganhar força' && plan.lastHeavy !== 'forca' ? 'forca' : 'hiper';
+  const str = goalWeight(p, 'Ganhar força');
+  return (str === 2 || (str === 1 && plan.blocks % 2 === 1)) && plan.lastHeavy !== 'forca' ? 'forca' : 'hiper';
 }
 
 // Voltou depois de muitos dias parado? O plano recua para uma readaptação curta
@@ -262,17 +263,24 @@ export const QUALITIES = {
   resist: { label: 'Resistência', tip: 'Resistência: carga leve, muitas repetições e pouco descanso. Mantenha o ritmo.' }
 };
 const LIGHT_GOALS = new Set(['Emagrecer', 'Ganhar condicionamento']);
+// Peso de cada objetivo para o usuário: 2 = principal, 1 = secundário, 0 = não escolhido
+export const goalWeight = (p, g) => p.goal === g ? 2 : p.goal2 === g ? 1 : 0;
+const lightWeight = p => Math.max(goalWeight(p, 'Emagrecer'), goalWeight(p, 'Ganhar condicionamento'));
+const buildWeight = p => Math.max(goalWeight(p, 'Ganhar força'), goalWeight(p, 'Ganhar massa muscular'));
 
 function applyQuality(rx, slot, pos, p, phase, exType) {
   if (!['hiper', 'intens', 'forca'].includes(phase)) return rx;
-  const goal = p.goal;
+  const str = goalWeight(p, 'Ganhar força'), light = lightWeight(p);
   let q = rx.quality;
-  if (slot.role === 'main' && exType === 'peso' && (pos.main === 0 || goal === 'Ganhar força')) q = 'forca';
-  else if (slot.role === 'acc' && (pos.lastAcc || LIGHT_GOALS.has(goal))) q = 'resist';
+  // Força: sempre o 1º principal; objetivo principal força = todos; secundário = os 2 primeiros
+  if (slot.role === 'main' && exType === 'peso' && (pos.main === 0 || str === 2 || (str === 1 && pos.main === 1))) q = 'forca';
+  // Resistência: sempre o último complementar; emagrecer/condicionamento principal = todos
+  // (alternados se o secundário for força/massa); como secundário = metade
+  else if (slot.role === 'acc' && (pos.lastAcc || (light === 2 && (buildWeight(p) === 0 || pos.acc % 2 === 1)) || (light === 1 && pos.acc % 2 === 1))) q = 'resist';
   if (q === 'forca' && phase !== 'forca') {
-    rx = { ...rx, sets: (phase === 'intens' ? 4 : 3) + (goal === 'Ganhar força' ? 1 : 0), range: phase === 'intens' ? [3, 5] : [4, 6], rest: 180, warm: 2 };
+    rx = { ...rx, sets: (phase === 'intens' ? 4 : 3) + (str === 2 ? 1 : 0), range: phase === 'intens' ? [3, 5] : [4, 6], rest: 180, warm: 2 };
   } else if (q === 'resist') {
-    rx = { ...rx, sets: 2 + (LIGHT_GOALS.has(goal) ? 1 : 0), range: [15, 20], rest: 45, warm: 0 };
+    rx = { ...rx, sets: 2 + (light === 2 ? 1 : 0), range: [15, 20], rest: 45, warm: 0 };
   }
   return { ...rx, quality: q };
 }
@@ -284,18 +292,18 @@ const GOAL_FOCUS = { 'Ganhar massa muscular': 'hipertrofia', 'Ganhar força': 'f
 // Cardio no fim do treino de musculação, conforme objetivo e fase
 const FINISH_MIN = { 'Ganhar massa muscular': 6, 'Ganhar força': 5, 'Emagrecer': 15, 'Ganhar condicionamento': 12, 'Melhorar saúde e bem-estar': 12 };
 function cardioFinisher(plan, p, st) {
-  let min = FINISH_MIN[p.goal] ?? 8;
+  let min = Math.max(FINISH_MIN[p.goal] ?? 8, Math.round((FINISH_MIN[p.goal2] ?? 0) * 0.6));
   if (plan.phase === 'readapt') min = 10;
   if (plan.phase === 'deload') min = Math.min(min, 8);
   if ((p.cardioDays || 0) >= 2) min = Math.round(min / 2);
-  if ((p.minutes || 60) <= 30 && !LIGHT_GOALS.has(p.goal)) return null;
+  if ((p.minutes || 60) <= 30 && !lightWeight(p)) return null;
   if (min < 5) return null;
   const pool = p.place === 'academia' ? ['bike', 'esteira', 'eliptico', 'remo', 'escada'] : ['cardio-casa'];
   const exId = pool[plan.idx % pool.length];
   // Intervalado em semanas alternadas para quem busca emagrecer/condicionamento (fora da readaptação)
-  const hiit = LIGHT_GOALS.has(p.goal) && ['hiper', 'intens', 'forca'].includes(plan.phase) && st.week % 2 === 0;
+  const hiit = lightWeight(p) > 0 && ['hiper', 'intens', 'forca'].includes(plan.phase) && st.week % 2 === 0;
   if (hiit) {
-    const reps = p.goal === 'Ganhar condicionamento' ? 10 : 8;
+    const reps = goalWeight(p, 'Ganhar condicionamento') ? 10 : 8;
     return { label: `${reps} tiros de 30 s`, exercise: { exId, rx: { quality: 'cardio' }, slot: { role: 'acc', p: 'cardio' }, rest: 60, group: null, tech: null, notes: '',
       tip: 'Intervalado: 30 s forte (difícil falar) e 60 s bem leve no descanso.', sets: Array.from({ length: reps }, () => ({ type: 'n', min: 0.5 })) } };
   }
@@ -357,7 +365,7 @@ function strengthSession() {
     if (!exId) return;
     used.add(exId);
     const ex = getEx(exId);
-    const pos = { main: slot.role === 'main' ? mainCount++ : -1, lastAcc: i === accIdx.at(-1) && accIdx.length > 1 };
+    const pos = { main: slot.role === 'main' ? mainCount++ : -1, acc: accIdx.indexOf(i), lastAcc: i === accIdx.at(-1) && accIdx.length > 1 };
     const rx = applyQuality(prescription(slot, plan.phase, st.week, plan, p), slot, pos, p, plan.phase, ex.type);
     let sets;
     if (ex.type === 'tempo' || SEC_TYPE.has(exId)) sets = Array.from({ length: rx.sets }, () => ({ type: 'n', sec: plan.phase === 'readapt' ? 20 : 30 }));
@@ -410,7 +418,7 @@ function strengthSession() {
 
   // Emagrecer/condicionamento: complementares de resistência em circuito (sem descanso entre eles)
   const resist = exercises.filter(e => e.rx.quality === 'resist' && !e.group);
-  if (LIGHT_GOALS.has(p.goal) && resist.length >= 2) {
+  if (lightWeight(p) === 2 && resist.length >= 2) {
     resist.forEach(e => exercises.splice(exercises.indexOf(e), 1));
     exercises.push(...resist);
     resist.forEach(e => { e.group = 'circ-' + plan.idx; });
@@ -431,7 +439,7 @@ function strengthSession() {
   const finisher = cardioFinisher(plan, p, st);
   if (['hiper', 'intens', 'forca'].includes(plan.phase)) {
     const parts = [q.forca && `${q.forca} de força`, q.hiper && `${q.hiper} de hipertrofia`, q.resist && `${q.resist} de resistência`].filter(Boolean);
-    reasons.unshift(`Hoje: ${parts.join(', ')}${finisher ? ` + ${finisher.label}` : ''}. Ênfase em ${GOAL_FOCUS[p.goal] || 'hipertrofia'}.`);
+    reasons.unshift(`Hoje: ${parts.join(', ')}${finisher ? ` + ${finisher.label}` : ''}. Ênfase em ${GOAL_FOCUS[p.goal] || 'hipertrofia'}${p.goal2 && GOAL_FOCUS[p.goal2] ? `, com ${GOAL_FOCUS[p.goal2]}` : ''}.`);
   }
   if (finisher) exercises.push(finisher.exercise);
 

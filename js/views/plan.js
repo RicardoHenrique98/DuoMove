@@ -12,6 +12,7 @@ const GOALS = { 'Ganhar massa muscular': 'Hipertrofia, mais músculo', 'Ganhar f
 
 const STEPS = [
   { key: 'goal', q: 'Qual é o seu objetivo principal?', opts: GOALS },
+  { key: 'goal2', q: 'E um objetivo secundário?', opts: a => ({ ...Object.fromEntries(Object.entries(GOALS).filter(([k]) => k !== a.goal)), '': 'Só o objetivo principal' }), goalLike: true },
   { key: 'level', q: 'Qual a sua experiência com musculação?', opts: { iniciante: 'Menos de 1 ano de treino', intermediario: '1 a 3 anos treinando com regularidade', avancado: 'Mais de 3 anos, conheço bem as técnicas' }, labels: LEVELS },
   { key: 'breakTime', q: 'Está treinando ou ficou um tempo parado?', opts: { nao: 'Treino com regularidade', '1m': 'Parei há menos de 1 mês', '3m': 'Parei há 1 a 3 meses', '6m': 'Parei há 3 a 6 meses', mais: 'Parei há mais de 6 meses' }, labels: BREAKS },
   { key: 'days', q: 'Quantos dias por semana de musculação?', opts: { 2: '2 dias', 3: '3 dias', 4: '4 dias', 5: '5 dias', 6: '6 dias' }, num: true },
@@ -39,9 +40,11 @@ export const wizard = {
       <header class="row between"><button class="icon-btn" data-act="prev" aria-label="Voltar">${icon('back')}</button><span class="muted small">${step + 1} de ${STEPS.length}</span><span style="width:38px"></span></header>
       <div class="steps">${STEPS.map((_, i) => `<i class="${i <= step ? 'on' : ''}"></i>`).join('')}</div>
       <div class="eyebrow">Seu treinador</div><h2>${esc(s.q)}</h2>
-      <div class="opts">${Object.entries(s.opts).map(([k, d]) => {
-        const label = s.labels?.[k] || (s.key === 'goal' ? k : d);
-        const sub = s.labels || s.key === 'goal' ? d : '';
+      ${s.key === 'goal2' ? '<p class="muted small">O treinador combina os dois: o principal define a base do treino e o secundário entra com menos peso.</p>' : ''}
+      <div class="opts">${Object.entries(typeof s.opts === 'function' ? s.opts(answers) : s.opts).map(([k, d]) => {
+        const goalLike = s.key === 'goal' || s.goalLike;
+        const label = s.labels?.[k] || (goalLike ? (k || 'Nenhum') : d);
+        const sub = s.labels || goalLike ? d : '';
         return `<button class="opt ${String(answers[s.key]) === k ? 'on' : ''}" data-act="answer" data-k="${esc(k)}">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
       }).join('')}</div></div>`;
   },
@@ -49,6 +52,7 @@ export const wizard = {
     answer(el, rerender) {
       const s = STEPS[step];
       answers[s.key] = s.num ? +el.dataset.k : el.dataset.k;
+      if (s.key === 'goal' && answers.goal2 === answers.goal) answers.goal2 = '';
       step++;
       while (STEPS[step]?.when && !STEPS[step].when(answers)) step++;
       rerender();
@@ -110,7 +114,7 @@ export const todayActions = {
 
 /* ---------- Página do plano ---------- */
 
-const CYCLE = p => ['readapt', 'hiper', ...(p.level !== 'iniciante' ? ['intens'] : []), 'deload', ...(p.goal === 'Ganhar força' ? ['forca', 'deload'] : [])];
+const CYCLE = p => ['readapt', 'hiper', ...(p.level !== 'iniciante' ? ['intens'] : []), 'deload', ...([p.goal, p.goal2].includes('Ganhar força') ? ['forca', 'deload'] : [])];
 
 export const page = {
   render() {
@@ -132,7 +136,7 @@ export const page = {
         <p class="muted small">Depois da descarga começa um novo ciclo com os exercícios complementares trocados. Ciclos completos: ${plan.blocks}.</p>
       </section>
       <section class="card"><b>Seu perfil de treino</b>
-        <p class="muted small" style="margin-top:6px">${esc(p.goal)} · ${esc(LEVELS[p.level] || '')} · ${p.days} dias/semana · ${p.minutes} min · ${esc(PLACES[p.place] || '')}${p.cardio && p.cardio !== 'nao' ? ` · ${esc(CARDIO_CHOICES[p.cardio])} ${p.cardioDays}x/semana` : ''}</p>
+        <p class="muted small" style="margin-top:6px">${esc(p.goal)}${p.goal2 ? ' + ' + esc(p.goal2.toLowerCase()) : ''} · ${esc(LEVELS[p.level] || '')} · ${p.days} dias/semana · ${p.minutes} min · ${esc(PLACES[p.place] || '')}${p.cardio && p.cardio !== 'nao' ? ` · ${esc(CARDIO_CHOICES[p.cardio])} ${p.cardioDays}x/semana` : ''}</p>
         <p class="muted small">${done} treinos feitos pelo plano.</p>
         <button class="setting" data-act="variety"><span>Troca de ficha</span><b>${esc(VARIETY[p.variety || 'ciclo'][0])}</b></button></section>
       ${plan.log.length ? `<section class="card"><b>Decisões do treinador</b>${plan.log.slice(-6).reverse().map(l => `<div class="done-set" style="align-items:flex-start;margin-top:8px"><small class="muted" style="min-width:52px">${fmtDate(l.ts)}</small><span class="small"><b>${esc(PHASES[l.phase].name)}</b> — ${esc(l.why)}</span></div>`).join('')}</section>` : ''}`;
