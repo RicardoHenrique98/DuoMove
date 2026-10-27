@@ -5,12 +5,12 @@ export const MUSCLES = {
   peito: 'Peito', costas: 'Costas', ombros: 'Ombros', biceps: 'Bíceps', triceps: 'Tríceps',
   antebraco: 'Antebraço', quadriceps: 'Quadríceps', posterior: 'Posterior de coxa', gluteos: 'Glúteos',
   adutores: 'Adutores', panturrilha: 'Panturrilha', abdomen: 'Abdômen', trapezio: 'Trapézio',
-  corpo: 'Corpo inteiro', cardio: 'Cardio', atividade: 'Atividades'
+  lombar: 'Lombar', pescoco: 'Pescoço', corpo: 'Corpo inteiro', cardio: 'Cardio', atividade: 'Atividades', mobilidade: 'Alongamento e mobilidade'
 };
 
 export const EQUIP = {
   barra: 'Barra', halter: 'Halteres', maquina: 'Máquina', polia: 'Polia', corporal: 'Peso corporal',
-  elastico: 'Elástico', kettlebell: 'Kettlebell', anilha: 'Anilha', nenhum: 'Nenhum'
+  elastico: 'Elástico', kettlebell: 'Kettlebell', anilha: 'Anilha', outro: 'Outro', nenhum: 'Nenhum'
 };
 
 export const TYPES = { peso: 'Carga e repetições', corpo: 'Só repetições', tempo: 'Tempo', cardio: 'Distância e tempo' };
@@ -166,6 +166,13 @@ export const EXERCISES = [
 // https://github.com/yuhonas/free-exercise-db
 const IMG_BASE = 'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/';
 export const imgUrl = (img, n) => `${IMG_BASE}${img}/${n}.jpg`;
+// Se a CDN falhar, tenta o GitHub direto; se também falhar, esconde a imagem
+const RAW_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/';
+window.dmImgFallback = el => {
+  if (el.src.startsWith(IMG_BASE)) el.src = RAW_BASE + el.src.slice(IMG_BASE.length);
+  else el.style.visibility = 'hidden';
+};
+export const IMG_ERR = 'onerror="dmImgFallback(this)"';
 
 const IMG = {
   'supino-reto-barra': 'Barbell_Bench_Press_-_Medium_Grip', 'supino-reto-halter': 'Dumbbell_Bench_Press',

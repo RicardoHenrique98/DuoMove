@@ -1,6 +1,6 @@
 // Tela do treino em andamento (também usada para editar um treino do histórico)
 import { state, save, getEx, previousSets } from '../store.js';
-import { MUSCLES } from '../data.js';
+import { MUSCLES, imgUrl, IMG_ERR } from '../data.js';
 import { esc, num, fmtNum, fmtKg, fmtClock, fmtRest, fmtDuration, plural } from '../util.js';
 import { icon, menu, confirmBox, toast, sheet, unlockAudio, beep } from '../ui.js';
 import { go } from '../router.js';
@@ -82,7 +82,8 @@ function exerciseCard(e, i, all) {
   return `<article class="ex-card ${group ? 'grouped' : ''}" data-ex="${e.id}">
     ${group ? `<div class="group-tag">${icon('swap', 13)} ${groupName(group.length).toUpperCase()} · ${group.indexOf(e) + 1}/${group.length}${group.indexOf(e) < group.length - 1 ? ' · sem descanso, vá para o próximo' : ' · descanse no fim da rodada'}</div>` : ''}
     <div class="ex-head">
-      <button class="ex-title" data-act="exHistory"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')}</small></button>
+      ${ex.img ? `<img class="ex-thumb" src="${imgUrl(ex.img, 0)}" alt="" loading="lazy" data-act="exHistory" ${IMG_ERR}>` : ''}
+      <button class="ex-title" data-act="exHistory"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')} · ver como fazer</small></button>
       <button class="icon-btn" data-act="exMenu" aria-label="Opções do exercício">${icon('more')}</button>
     </div>
     ${e.coach ? `<p class="coach c-${e.coach.tone}">${icon(COACH_ICON[e.coach.tone], 15)}<span><b>Treinador:</b> ${esc(e.coach.msg)}</span></p>` : ''}

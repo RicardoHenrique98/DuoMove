@@ -1,11 +1,11 @@
 import { state, getEx } from '../store.js';
-import { MUSCLES, EQUIP, imgUrl } from '../data.js';
+import { MUSCLES, EQUIP, imgUrl, IMG_ERR } from '../data.js';
 import { esc, fmtDate, fmtKg, fmtNum, fmtPace, plural } from '../util.js';
 import { icon } from '../ui.js';
 import { go, back } from '../router.js';
 import { weekly, weekStreak, muscleSplit, workoutVolume, exerciseSessions, sessionBest, records } from '../stats.js';
 import { barChart, lineChart } from '../charts.js';
-import { filterExercises, exerciseRow, muscleChips } from './picker.js';
+import { filterExercises, exerciseRow, muscleChips, limited } from './picker.js';
 import { fmtSet, setTag } from './live.js';
 import { isMain } from '../techniques.js';
 
@@ -51,6 +51,7 @@ export const actions = {
 /* ---------- Biblioteca ---------- */
 
 let libQ = '', libM = null;
+const libRows = list => { const { items, more } = limited(list); return items.map(e => exerciseRow(e, `data-act="exercise" data-id="${e.id}"`, icon('chevron', 16))).join('') + more; };
 export const library = {
   hideTabs: true,
   render() {
@@ -58,11 +59,11 @@ export const library = {
     return `<header class="live-head"><button class="icon-btn" data-act="back" aria-label="Voltar">${icon('back')}</button><b class="grow center">Biblioteca</b><span class="pill">${list.length}</span></header>
       <label class="search">${icon('search', 18)}<input type="search" placeholder="Buscar exercício" data-f="q" value="${esc(libQ)}" autocomplete="off"></label>
       ${muscleChips(libM)}
-      <div class="card list" id="libList">${list.map(e => exerciseRow(e, `data-act="exercise" data-id="${e.id}"`, icon('chevron', 16))).join('')}</div>`;
+      <div class="card list" id="libList">${libRows(list)}</div>`;
   },
   input(el) {
     libQ = el.value;
-    document.getElementById('libList').innerHTML = filterExercises(libQ, libM).map(e => exerciseRow(e, `data-act="exercise" data-id="${e.id}"`, icon('chevron', 16))).join('');
+    document.getElementById('libList').innerHTML = libRows(filterExercises(libQ, libM));
   },
   actions: {
     back: () => back('/progresso'),
@@ -72,6 +73,18 @@ export const library = {
 };
 
 /* ---------- Detalhe do exercício ---------- */
+
+// Instruções em português, carregadas sob demanda (arquivo separado para o app abrir rápido)
+let HOWTO = null, loading = null;
+function loadHowto() {
+  loading ||= fetch('data/howto.json').then(r => r.json()).then(d => { HOWTO = d; }).catch(() => { HOWTO = {}; });
+  return loading;
+}
+const howtoHtml = img => {
+  if (!HOWTO) return '<li class="muted">Carregando…</li>';
+  const steps = HOWTO[img];
+  return steps?.length ? steps.map(t => `<li>${esc(t)}</li>`).join('') : '<li class="muted">Instruções em breve.</li>';
+};
 
 let exMetric = null;
 export const exercise = {
@@ -85,12 +98,12 @@ export const exercise = {
     const recCards = ex.type === 'peso' ? [['Maior carga', rec.kg ? fmtNum(rec.kg, 2) + ' kg' : '—'], ['1RM estimado', rec.e1rm ? fmtNum(rec.e1rm, 1) + ' kg' : '—'], ['Melhor volume', rec.volume ? fmtKg(rec.volume) : '—']]
       : ex.type === 'corpo' ? [['Mais repetições', rec.reps || '—']] : ex.type === 'tempo' ? [['Maior tempo', rec.sec ? rec.sec + 's' : '—']]
       : [['Maior distância', rec.km ? fmtNum(rec.km, 2) + ' km' : '—'], ['Melhor ritmo', rec.pace ? fmtPace(1, rec.pace) : '—']];
-    const demo = ex.img ? `<div class="demo" data-act="demo" aria-label="Demonstração do exercício"><img src="${imgUrl(ex.img, 0)}" alt="${esc(ex.name)} — posição inicial" loading="lazy"><img src="${imgUrl(ex.img, 1)}" alt="${esc(ex.name)} — posição final" loading="lazy" class="b"></div>` : '';
+    const demo = ex.img ? `<div class="demo" data-act="demo" aria-label="Demonstração do exercício"><img src="${imgUrl(ex.img, 0)}" alt="${esc(ex.name)} — posição inicial" loading="lazy" ${IMG_ERR}><img src="${imgUrl(ex.img, 1)}" alt="${esc(ex.name)} — posição final" loading="lazy" class="b" ${IMG_ERR}></div>` : '';
     return `<header class="live-head"><button class="icon-btn" data-act="back" aria-label="Voltar">${icon('back')}</button><b class="grow center">Exercício</b><span></span></header>
       ${demo}
       <h1 class="detail-title">${esc(ex.name)}</h1>
       <p class="muted">${esc(MUSCLES[ex.muscle] || '')} · ${esc(EQUIP[ex.equip] || '')}</p>
-      ${ex.tips?.length ? `<section class="card"><b>Como fazer</b><ol class="tips">${ex.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ol></section>` : ''}
+      ${ex.img ? `<section class="card" id="howto" data-img="${esc(ex.img)}"><b>Como fazer</b><ol class="tips">${howtoHtml(ex.img)}</ol></section>` : ''}
       <div class="kpi-cards">${recCards.map(([l, v]) => `<div class="card"><small>${l}</small><b>${v}</b></div>`).join('')}</div>
       <section class="card"><div class="chips">${metrics.map(([k, l]) => `<button class="chip ${exMetric === k ? 'on' : ''}" data-act="exMetric" data-k="${k}">${l}</button>`).join('')}</div>
         ${lineChart(pts, v => exMetric === 'pace' ? fmtPace(1, v) : fmtNum(v, 1), 'Evolução')}</section>
@@ -98,6 +111,10 @@ export const exercise = {
       ${sessions.length ? sessions.slice(0, 30).map(({ w, e }) => { let n = 0; return `<button class="card ex-done" data-act="workout" data-id="${w.id}"><div class="row between"><b>${esc(w.name)}</b><small class="muted">${fmtDate(w.start, { day: '2-digit', month: 'short', year: '2-digit' })}</small></div>
         ${e.sets.map(s => { if (isMain(s)) n++; return `<div class="done-set"><span class="set-tag t-${s.type}">${setTag(s, n)}</span><span>${esc(fmtSet(s, ex.type))}</span></div>`; }).join('')}</button>`; }).join('')
         : '<div class="empty">Você ainda não fez este exercício.</div>'}`;
+  },
+  mount(root) {
+    const box = root.querySelector('#howto');
+    if (box && !HOWTO) loadHowto().then(() => { const b = document.getElementById('howto'); if (b) b.querySelector('ol').innerHTML = howtoHtml(b.dataset.img); });
   },
   actions: {
     back: () => back('/progresso'),

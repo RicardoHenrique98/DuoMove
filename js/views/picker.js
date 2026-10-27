@@ -1,18 +1,24 @@
 // Seletor de exercícios (busca + filtro por músculo) e criação de exercício próprio
 import { allExercises, addCustomExercise } from '../store.js';
-import { MUSCLES, EQUIP, TYPES } from '../data.js';
+import { MUSCLES, EQUIP, TYPES, imgUrl, IMG_ERR } from '../data.js';
 import { esc, norm } from '../util.js';
 import { sheet, icon, toast } from '../ui.js';
 
+// Busca por todas as palavras (em qualquer ordem); exercícios curados aparecem primeiro
 export function filterExercises(q, muscle) {
-  const nq = norm(q);
+  const words = norm(q).split(/\s+/).filter(Boolean);
   return allExercises()
-    .filter(e => (!muscle || e.muscle === muscle) && (!nq || norm(e.name).includes(nq) || norm(MUSCLES[e.muscle] || '').includes(nq)))
-    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    .filter(e => (!muscle || e.muscle === muscle) && words.every(w => norm(e.name).includes(w) || norm(MUSCLES[e.muscle] || '').includes(w) || norm(EQUIP[e.equip] || '').includes(w)))
+    .sort((a, b) => (a.extra ? 1 : 0) - (b.extra ? 1 : 0) || a.name.localeCompare(b.name, 'pt-BR'));
 }
 
+const LIMIT = 120;
+export const limited = list => list.length > LIMIT
+  ? { items: list.slice(0, LIMIT), more: `<div class="empty small">Mostrando ${LIMIT} de ${list.length}. Busque pelo nome ou filtre por músculo para ver os demais.</div>` }
+  : { items: list, more: '' };
+
 export const exerciseRow = (e, attrs = '', right = '') => `<button class="ex-row" ${attrs}>
-  <span class="ex-badge">${esc((e.name.match(/[A-Za-zÀ-ÿ]/) || ['?'])[0].toUpperCase())}</span>
+  ${e.img ? `<img class="ex-thumb" src="${imgUrl(e.img, 0)}" alt="" loading="lazy" decoding="async" ${IMG_ERR}>` : `<span class="ex-badge">${esc((e.name.match(/[A-Za-zÀ-ÿ]/) || ['?'])[0].toUpperCase())}</span>`}
   <span class="grow"><b>${esc(e.name)}</b><small>${esc(MUSCLES[e.muscle] || '')} · ${esc(EQUIP[e.equip] || '')}${e.custom ? ' · seu' : ''}</small></span>${right}</button>`;
 
 export const muscleChips = (active, act = 'muscle') => `<div class="chips scroll-x">
@@ -22,10 +28,10 @@ export const muscleChips = (active, act = 'muscle') => `<div class="chips scroll
 export function openPicker({ title = 'Adicionar exercícios', multi = true, muscle = null, onDone }) {
   let q = '', m = muscle;
   const chosen = [];
-  const list = () => filterExercises(q, m).map(e => {
+  const list = () => { const { items, more } = limited(filterExercises(q, m)); return items.map(e => {
     const i = chosen.indexOf(e.id);
     return exerciseRow(e, `data-act="toggle" data-id="${e.id}" aria-pressed="${i >= 0}"`, i >= 0 ? `<span class="pick-n">${multi ? i + 1 : icon('check', 16)}</span>` : '');
-  }).join('') || `<div class="empty">Nada encontrado. Crie o exercício abaixo.</div>`;
+  }).join('') + more || `<div class="empty">Nada encontrado. Crie o exercício abaixo.</div>`; };
 
   const paint = api => {
     api.el.querySelector('.pick-list').innerHTML = list();

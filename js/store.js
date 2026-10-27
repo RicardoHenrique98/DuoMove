@@ -1,10 +1,14 @@
 import { EXERCISES, PRESET_ROUTINES, PRESETS_VERSION, OLD_PRESET_NAMES } from './data.js';
 import { uid, num, norm } from './util.js';
+import { DB } from './library.js';
 
 const KEY = 'duo-move-v2';
 const OLD_KEY = 'duo-move-trainer-v1';
 
-const LIBRARY = new Map(EXERCISES.map(e => [e.id, e]));
+// Biblioteca = exercícios curados (com dicas e usados nas fichas) + base ampliada
+const EXTRA = DB.map(([id, name, muscle, equip, type, img]) => ({ id, name, muscle, equip, type, img: img || undefined, extra: true }));
+const ALL = [...EXERCISES, ...EXTRA];
+const LIBRARY = new Map(ALL.map(e => [e.id, e]));
 
 export function routineFromPreset(p) {
   return {
@@ -97,7 +101,7 @@ export function exportData() {
   return JSON.stringify({ app: 'duo-move', exported: new Date().toISOString(), ...state }, null, 1);
 }
 
-export const allExercises = () => [...EXERCISES, ...state.custom];
+export const allExercises = () => [...ALL, ...state.custom];
 
 export const getEx = id => LIBRARY.get(id) || state.custom.find(e => e.id === id) || { id, name: 'Exercício removido', muscle: 'corpo', equip: 'nenhum', type: 'peso' };
 
