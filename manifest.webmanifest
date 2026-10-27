@@ -1,0 +1,14 @@
+{
+  "id": "./",
+  "name": "Duo Move",
+  "short_name": "Duo Move",
+  "description": "Seu treino, suas cargas, sua evolução.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101211",
+  "theme_color": "#101211",
+  "lang": "pt-BR",
+  "icons": [{ "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }]
+}
