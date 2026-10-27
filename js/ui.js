@@ -25,6 +25,7 @@ const PATHS = {
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   download: 'M12 4v12M7 11l5 5 5-5M5 20h14',
   upload: 'M12 20V8M7 13l5-5 5 5M5 4h14',
+  bulb: 'M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z',
   dumbbell: 'M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12'
 };
 

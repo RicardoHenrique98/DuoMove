@@ -5,12 +5,13 @@ import { go } from './router.js';
 import { confirmBox, toast } from './ui.js';
 
 const FIELDS = ['kg', 'reps', 'sec', 'km', 'min'];
-const pick = s => Object.fromEntries(FIELDS.filter(f => s[f] != null).map(f => [f, s[f]]));
+const TARGET = [...FIELDS, 'rmax'];
+const pick = (s, keys = FIELDS) => Object.fromEntries(keys.filter(f => s[f] != null).map(f => [f, s[f]]));
 
-export const newSet = (target = {}, type = 'n') => ({ id: uid(), type, kg: null, reps: null, sec: null, km: null, min: null, t: pick(target), done: false });
+export const newSet = (target = {}, type = 'n') => ({ id: uid(), type, kg: null, reps: null, sec: null, km: null, min: null, t: pick(target, TARGET), done: false });
 
-export const newExercise = (exId, sets = [{}], rest) => ({
-  id: uid(), exId, notes: '',
+export const newExercise = (exId, sets = [{}], rest, tip = '') => ({
+  id: uid(), exId, notes: '', tip,
   rest: rest ?? (getEx(exId).type === 'cardio' ? 0 : state.profile.rest),
   sets: sets.map(s => newSet(s, s.type || 'n'))
 });
@@ -30,7 +31,7 @@ function begin(w) {
 
 export async function startFromRoutine(r) {
   if (!(await canStart())) return;
-  begin({ name: r.name, routineId: r.id, kind: r.kind, exercises: r.exercises.map(e => newExercise(e.exId, e.sets, e.rest)) });
+  begin({ name: r.name, routineId: r.id, kind: r.kind, exercises: r.exercises.map(e => newExercise(e.exId, e.sets, e.rest, e.notes)) });
 }
 
 export async function startEmpty() {
@@ -95,6 +96,13 @@ export function updateRoutineFrom(w) {
   const r = state.routines.find(x => x.id === w.routineId);
   if (!r) return;
   const fresh = routineFromWorkout(w, r.name);
+  // Mantém as faixas de repetições e as dicas que já estavam na rotina
+  for (const e of fresh.exercises) {
+    const old = r.exercises.find(x => x.exId === e.exId);
+    if (!old) continue;
+    e.notes = old.notes;
+    e.sets.forEach((s, i) => { const o = old.sets[i] || old.sets.at(-1); if (o?.rmax) { s.rmax = Math.max(o.rmax, s.reps || 0); s.reps = Math.min(s.reps ?? o.reps, o.reps); } });
+  }
   r.exercises = fresh.exercises;
   save();
   toast('Rotina atualizada com este treino');

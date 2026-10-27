@@ -47,11 +47,11 @@ function exerciseCard(e) {
   let n = 0;
   const rows = e.sets.map((s, i) => {
     if (s.type !== 'w') n++;
-    const ph = f => s.t?.[f] ?? prev[i]?.[f] ?? '';
+    const ph = f => f === 'reps' && s.t?.rmax ? `${s.t.reps}–${s.t.rmax}` : fmtNum(s.t?.[f] ?? prev[i]?.[f] ?? '', 2);
     return `<div class="set-row c${cols.length} ${s.done ? 'done' : ''}" data-set="${s.id}">
       <button class="set-tag t-${s.type}" data-act="setMenu" aria-label="Tipo da série">${setTag(s, n)}</button>
       <button class="prev" data-act="copyPrev" data-i="${i}" ${prev[i] ? '' : 'disabled'}>${esc(fmtSet(prev[i], ex.type))}</button>
-      ${cols.map(([f, label]) => `<input data-f="${f}" inputmode="${f === 'reps' || f === 'sec' ? 'numeric' : 'decimal'}" enterkeyhint="next" autocomplete="off" aria-label="${label} série ${i + 1}" placeholder="${esc(fmtNum(ph(f), 2))}" value="${s[f] != null ? esc(fmtNum(s[f], 2)) : ''}">`).join('')}
+      ${cols.map(([f, label]) => `<input data-f="${f}" inputmode="${f === 'reps' || f === 'sec' ? 'numeric' : 'decimal'}" enterkeyhint="next" autocomplete="off" aria-label="${label} série ${i + 1}" placeholder="${esc(ph(f))}" value="${s[f] != null ? esc(fmtNum(s[f], 2)) : ''}">`).join('')}
       <button class="check" data-act="check" aria-label="Concluir série" aria-pressed="${s.done}">${icon('check', 18)}</button>
     </div>`;
   }).join('');
@@ -60,6 +60,7 @@ function exerciseCard(e) {
       <button class="ex-title" data-act="exHistory"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')}</small></button>
       <button class="icon-btn" data-act="exMenu" aria-label="Opções do exercício">${icon('more')}</button>
     </div>
+    ${e.tip ? `<p class="tip">${icon('bulb', 15)}<span>${esc(e.tip)}</span></p>` : ''}
     <input class="note" data-f="note" placeholder="Observação (ajuste do banco, pegada...)" value="${esc(e.notes)}" maxlength="140">
     ${ex.type !== 'cardio' ? `<button class="rest-chip" data-act="exRest">${icon('timer', 15)} Descanso: ${fmtRest(e.rest)}</button>` : ''}
     <div class="set-row c${cols.length} head"><span>SÉRIE</span><span>ANTERIOR</span>${cols.map(c => `<span>${c[1]}</span>`).join('')}<span>${icon('check', 14)}</span></div>

@@ -1,4 +1,4 @@
-import { EXERCISES, PRESET_ROUTINES } from './data.js';
+import { EXERCISES, PRESET_ROUTINES, PRESETS_VERSION, OLD_PRESET_NAMES } from './data.js';
 import { uid, num, norm } from './util.js';
 
 const KEY = 'duo-move-v2';
@@ -8,14 +8,23 @@ const LIBRARY = new Map(EXERCISES.map(e => [e.id, e]));
 
 export function routineFromPreset(p) {
   return {
-    id: uid(), name: p.name, kind: p.kind, created: Date.now(),
-    exercises: p.ex.map(([exId, cfg]) => ({ id: uid(), exId, rest: cfg.rest, notes: '', sets: cfg.sets.map(s => ({ type: 'n', ...s })) }))
+    id: uid(), name: p.name, kind: p.kind, program: p.program, preset: true, created: Date.now(),
+    exercises: p.ex.map(e => ({ id: uid(), exId: e.exId, rest: e.rest, notes: e.notes || '', sets: e.sets.map(s => ({ ...s })) }))
   };
+}
+
+// Troca as fichas prontas antigas pelas novas, mantendo as rotinas criadas pelo usuário
+function upgradePresets(s) {
+  if ((s.presetsV || 1) >= PRESETS_VERSION) return;
+  const mine = s.routines.filter(r => !r.preset && !OLD_PRESET_NAMES.includes(r.name));
+  s.routines = [...PRESET_ROUTINES.map(routineFromPreset), ...mine];
+  s.presetsV = PRESETS_VERSION;
 }
 
 function fresh() {
   return {
     v: 2,
+    presetsV: PRESETS_VERSION,
     profile: { name: '', goal: 'Ganhar força', rest: 90, sound: true },
     routines: PRESET_ROUTINES.map(routineFromPreset),
     workouts: [],
@@ -52,7 +61,12 @@ function migrateOld(raw, s) {
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...fresh(), ...JSON.parse(raw) };
+    if (raw) {
+      const s = { ...fresh(), presetsV: 1, ...JSON.parse(raw) };
+      upgradePresets(s);
+      localStorage.setItem(KEY, JSON.stringify(s));
+      return s;
+    }
     const s = fresh();
     const old = localStorage.getItem(OLD_KEY);
     if (old) migrateOld(old, s);

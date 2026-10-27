@@ -186,19 +186,106 @@ for (const e of EXERCISES) if (IMG[e.id]) e.img = IMG[e.id];
 
 export const KINDS = { musculacao: 'Musculação', corrida: 'Corrida', pedal: 'Pedal', cardio: 'Cardio' };
 
-// Atalhos para descrever séries-alvo
-const S = (n, reps, rest = 90) => ({ rest, sets: Array.from({ length: n }, () => ({ reps })) });
-const T = (n, sec, rest = 45) => ({ rest, sets: Array.from({ length: n }, () => ({ sec })) });
-const C = (km, min) => ({ rest: 0, sets: [{ km, min }] });
+// Fichas prontas, montadas com base nas recomendações atuais de hipertrofia e força:
+// cada músculo 2x por semana, ~10–20 séries semanais, compostos primeiro,
+// faixas de repetições com descanso maior nos multiarticulares e séries a 1–3 reps da falha.
+export const PRESETS_VERSION = 2;
+
+// Atalhos: X(exercício, séries, repMín, repMáx, descanso, aquecimentos, dica)
+const X = (exId, n, rmin, rmax, rest, warm = 0, notes = '') => ({
+  exId, rest, notes,
+  sets: [...Array.from({ length: warm }, () => ({ type: 'w', reps: 10 })), ...Array.from({ length: n }, () => ({ type: 'n', reps: rmin, ...(rmax > rmin ? { rmax } : {}) }))]
+});
+const T = (exId, n, sec, rest = 45, notes = '') => ({ exId, rest, notes, sets: Array.from({ length: n }, () => ({ type: 'n', sec })) });
+const C = (exId, n, min, rest = 0, notes = '', km = null) => ({ exId, rest, notes, sets: Array.from({ length: n }, () => ({ type: 'n', min, ...(km ? { km } : {}) })) });
+
+const RIR = 'Pare com 1–2 repetições “sobrando”. Bateu o topo da faixa em todas as séries? Suba a carga.';
+const WARM = 'Faça a série de aquecimento leve (A) antes. ' + RIR;
+
+export const PROGRAMS = [
+  { id: 'fb3', name: 'Full-body 3x · Iniciante', desc: '3 dias por semana (ex.: seg, qua, sex), alternando A, B e C. Corpo todo em cada treino, ~50 min.' },
+  { id: 'ul4', name: 'Superior/Inferior 4x · Intermediário', desc: '4 dias (ex.: seg, ter, qui, sex). Treinos A focados em força, B em volume.' },
+  { id: 'ppl', name: 'Push/Pull/Legs · Avançado', desc: '6 dias seguidos com 1 de descanso, ou 3 dias para quem tem menos tempo.' },
+  { id: 'casa', name: 'Em casa · Sem equipamento', desc: 'Para dias sem academia. Faça em circuito se quiser mais intensidade.' },
+  { id: 'corrida', name: 'Corrida', desc: 'Comece pelo corre-caminha se está voltando. Faça 80% dos treinos em ritmo leve (dá para conversar).' },
+  { id: 'pedal', name: 'Pedal', desc: 'Base em zona 2 (leve, respiração controlada) e 1 treino intervalado por semana.' }
+];
 
 export const PRESET_ROUTINES = [
-  { name: 'Full-body A', kind: 'musculacao', ex: [['agachamento-goblet', S(3, 10)], ['supino-reto-halter', S(3, 10)], ['remada-baixa', S(3, 10)], ['terra-romeno', S(3, 10)], ['prancha', T(3, 30)]] },
-  { name: 'Full-body B', kind: 'musculacao', ex: [['leg-press', S(3, 12)], ['puxada-frontal', S(3, 10)], ['desenvolvimento-halter', S(3, 10)], ['elevacao-quadril', S(3, 10)], ['abdominal', S(3, 15, 45)]] },
-  { name: 'Peito e tríceps', kind: 'musculacao', ex: [['supino-reto-barra', S(4, 8, 120)], ['supino-inclinado-halter', S(3, 10)], ['voador', S(3, 12, 60)], ['triceps-corda', S(3, 12, 60)], ['triceps-frances', S(3, 10, 60)]] },
-  { name: 'Costas e bíceps', kind: 'musculacao', ex: [['puxada-frontal', S(4, 10)], ['remada-curvada', S(3, 8, 120)], ['remada-unilateral', S(3, 10)], ['face-pull', S(3, 15, 60)], ['rosca-direta', S(3, 10, 60)], ['rosca-martelo', S(3, 12, 60)]] },
-  { name: 'Pernas e glúteos', kind: 'musculacao', ex: [['agachamento-livre', S(4, 8, 150)], ['leg-press', S(3, 12, 120)], ['cadeira-extensora', S(3, 12, 60)], ['mesa-flexora', S(3, 12, 60)], ['elevacao-quadril', S(3, 10)], ['panturrilha-pe', S(4, 15, 45)]] },
-  { name: 'Ombros e abdômen', kind: 'musculacao', ex: [['desenvolvimento-halter', S(4, 10)], ['elevacao-lateral', S(3, 12, 60)], ['crucifixo-inverso', S(3, 12, 60)], ['encolhimento', S(3, 12, 60)], ['prancha', T(3, 40)], ['elevacao-pernas', S(3, 12, 45)]] },
-  { name: 'Corrida leve', kind: 'corrida', ex: [['caminhada', C(0.5, 5)], ['corrida', C(3, 20)], ['caminhada', C(0.5, 5)]] },
-  { name: 'Pedal no seu ritmo', kind: 'pedal', ex: [['pedal', C(15, 45)]] },
-  { name: 'Cardio em casa', kind: 'cardio', ex: [['polichinelo', T(3, 45, 30)], ['burpee', S(3, 10, 45)], ['agachamento-corpo', S(3, 15, 45)], ['prancha', T(3, 30, 30)]] }
+  // Full-body 3x
+  { program: 'fb3', name: 'Full-body A', kind: 'musculacao', ex: [
+    X('agachamento-livre', 3, 6, 8, 150, 1, WARM), X('supino-reto-barra', 3, 6, 8, 150, 1, WARM),
+    X('puxada-frontal', 3, 8, 12, 120, 0, RIR), X('terra-romeno', 3, 8, 12, 120, 0, 'Quadril para trás, coluna neutra, sinta o alongamento do posterior.'),
+    X('elevacao-lateral', 2, 12, 15, 60), T('prancha', 3, 30, 45, 'Contraia glúteos e abdômen; não deixe o quadril cair.')] },
+  { program: 'fb3', name: 'Full-body B', kind: 'musculacao', ex: [
+    X('leg-press', 3, 10, 12, 120, 1, WARM), X('desenvolvimento-halter', 3, 8, 12, 120, 0, RIR),
+    X('remada-unilateral', 3, 8, 12, 90, 0, 'Puxe o cotovelo em direção ao quadril.'), X('supino-inclinado-halter', 3, 8, 12, 120, 0, RIR),
+    X('mesa-flexora', 3, 10, 15, 90), X('abdominal-polia', 3, 10, 15, 60)] },
+  { program: 'fb3', name: 'Full-body C', kind: 'musculacao', ex: [
+    X('bulgaro', 3, 8, 12, 120, 0, 'Comece pela perna mais fraca. Repetições por perna.'), X('supino-reto-halter', 3, 8, 12, 120, 0, RIR),
+    X('remada-baixa', 3, 10, 12, 90, 0, 'Peito alto, escápulas para trás no fim.'), X('elevacao-quadril', 3, 8, 12, 120, 0, 'Segure 1 segundo no topo.'),
+    X('rosca-direta', 2, 10, 12, 60), X('triceps-corda', 2, 10, 15, 60)] },
+
+  // Superior/Inferior 4x
+  { program: 'ul4', name: 'Superior A · Força', kind: 'musculacao', ex: [
+    X('supino-reto-barra', 4, 5, 8, 180, 2, WARM), X('remada-curvada', 4, 6, 8, 150, 1, WARM),
+    X('desenvolvimento-halter', 3, 8, 10, 120), X('puxada-frontal', 3, 8, 12, 120),
+    X('rosca-direta', 2, 8, 12, 60), X('triceps-testa', 2, 8, 12, 60)] },
+  { program: 'ul4', name: 'Inferior A · Força', kind: 'musculacao', ex: [
+    X('agachamento-livre', 4, 5, 8, 180, 2, WARM), X('terra-romeno', 3, 8, 10, 150),
+    X('leg-press', 3, 10, 12, 120), X('mesa-flexora', 3, 10, 12, 90),
+    X('panturrilha-pe', 4, 10, 15, 60, 0, 'Pausa de 1 s embaixo, alongando bem.'), X('elevacao-pernas', 3, 10, 15, 60)] },
+  { program: 'ul4', name: 'Superior B · Volume', kind: 'musculacao', ex: [
+    X('supino-inclinado-halter', 3, 8, 12, 120, 1, WARM), X('puxada-supinada', 3, 8, 12, 120),
+    X('remada-maquina', 3, 10, 12, 90), X('crossover', 3, 12, 15, 60),
+    X('elevacao-lateral', 4, 12, 20, 60, 0, 'Ótimo exercício para drop set na última série.'), X('face-pull', 3, 15, 20, 60),
+    X('rosca-inclinada', 3, 10, 12, 60), X('triceps-corda', 3, 10, 15, 60)] },
+  { program: 'ul4', name: 'Inferior B · Volume', kind: 'musculacao', ex: [
+    X('levantamento-terra', 3, 4, 6, 180, 2, WARM), X('bulgaro', 3, 8, 12, 120),
+    X('elevacao-quadril', 3, 8, 12, 120), X('cadeira-extensora', 3, 12, 15, 60),
+    X('cadeira-flexora', 3, 12, 15, 60), X('panturrilha-sentado', 4, 12, 20, 60)] },
+
+  // Push/Pull/Legs
+  { program: 'ppl', name: 'Push · Peito, ombro e tríceps', kind: 'musculacao', ex: [
+    X('supino-reto-barra', 4, 6, 8, 180, 2, WARM), X('desenvolvimento-barra', 3, 6, 10, 150),
+    X('supino-inclinado-halter', 3, 8, 12, 120), X('elevacao-lateral', 4, 12, 20, 60),
+    X('voador', 3, 12, 15, 60), X('triceps-corda', 3, 10, 15, 60), X('triceps-frances', 3, 10, 12, 60)] },
+  { program: 'ppl', name: 'Pull · Costas e bíceps', kind: 'musculacao', ex: [
+    X('barra-fixa', 4, 6, 10, 150, 0, 'Sem conseguir? Troque pela barra assistida.'), X('remada-curvada', 3, 6, 10, 150, 1, WARM),
+    X('remada-baixa', 3, 10, 12, 90), X('pulldown', 3, 12, 15, 60),
+    X('face-pull', 3, 15, 20, 60), X('rosca-direta', 3, 8, 12, 60), X('rosca-martelo', 3, 10, 12, 60)] },
+  { program: 'ppl', name: 'Legs · Pernas e glúteos', kind: 'musculacao', ex: [
+    X('agachamento-livre', 4, 6, 8, 180, 2, WARM), X('stiff', 3, 8, 10, 150),
+    X('leg-press', 3, 10, 15, 120), X('cadeira-extensora', 3, 12, 15, 60),
+    X('mesa-flexora', 3, 10, 15, 60), X('panturrilha-pe', 4, 10, 15, 60), X('abdominal-polia', 3, 10, 15, 60)] },
+
+  // Em casa
+  { program: 'casa', name: 'Corpo todo em casa', kind: 'musculacao', ex: [
+    X('flexao', 3, 8, 15, 90, 0, 'Fácil demais? Pés elevados. Difícil? Mãos num banco.'), X('agachamento-corpo', 3, 15, 20, 60),
+    X('ponte-gluteo', 3, 15, 20, 60), X('mergulho-banco', 3, 10, 15, 60),
+    X('dead-bug', 3, 8, 10, 45, 0, 'Repetições por lado, lombar colada no chão.'), T('prancha', 3, 40, 45)] },
+  { program: 'casa', name: 'HIIT em casa', kind: 'cardio', ex: [
+    T('polichinelo', 4, 40, 20, 'Esforço alto: 40 s de trabalho, 20 s de pausa.'), X('burpee', 4, 8, 12, 30),
+    X('agachamento-corpo', 4, 15, 20, 30), T('prancha', 3, 30, 30)] },
+
+  // Corrida
+  { program: 'corrida', name: 'Corre-caminha · Iniciante', kind: 'corrida', ex: [
+    C('caminhada', 1, 5, 0, 'Aquecimento: caminhada rápida.'),
+    C('corrida', 8, 1, 90, 'Corra 1 min e caminhe durante o descanso (1 min 30 s). A cada semana, aumente a corrida.'),
+    C('caminhada', 1, 5, 0, 'Volta à calma.')] },
+  { program: 'corrida', name: 'Corrida leve · Zona 2', kind: 'corrida', ex: [
+    C('caminhada', 1, 5, 0, 'Aquecimento.'), C('corrida', 1, 30, 0, 'Ritmo de conversa: se não dá para falar frases, diminua.'), C('caminhada', 1, 5, 0, 'Volta à calma.')] },
+  { program: 'corrida', name: 'Corrida intervalada', kind: 'corrida', ex: [
+    C('corrida', 1, 10, 0, 'Aquecimento bem leve.'), C('corrida', 6, 3, 120, 'Tiros de 3 min em ritmo forte (difícil falar). Trote leve no descanso.'), C('corrida', 1, 10, 0, 'Desaquecimento leve.')] },
+  { program: 'corrida', name: 'Longão', kind: 'corrida', ex: [
+    C('corrida', 1, 60, 0, 'Bem leve, 1 vez por semana. Aumente no máximo 10% por semana.')] },
+
+  // Pedal
+  { program: 'pedal', name: 'Pedal zona 2', kind: 'pedal', ex: [
+    C('pedal', 1, 60, 0, 'Intensidade leve e constante; dá para conversar.')] },
+  { program: 'pedal', name: 'Pedal intervalado', kind: 'pedal', ex: [
+    C('bike', 1, 10, 0, 'Aquecimento leve.'), C('bike', 5, 4, 180, '4 min forte, 3 min girando leve no descanso.'), C('bike', 1, 10, 0, 'Desaquecimento.')] }
 ];
+
+// Nomes das fichas antigas (versão 1), substituídas na atualização
+export const OLD_PRESET_NAMES = ['Full-body A', 'Full-body B', 'Peito e tríceps', 'Costas e bíceps', 'Pernas e glúteos', 'Ombros e abdômen', 'Corrida leve', 'Pedal no seu ritmo', 'Cardio em casa'];

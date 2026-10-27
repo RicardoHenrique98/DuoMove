@@ -1,5 +1,5 @@
 import { state, save, getEx } from '../store.js';
-import { KINDS, GROUPS } from '../data.js';
+import { KINDS, GROUPS, PROGRAMS } from '../data.js';
 import { esc, uid, num, fmtNum, fmtRest, plural } from '../util.js';
 import { icon, menu, confirmBox, toast, sheet } from '../ui.js';
 import { go, back } from '../router.js';
@@ -18,11 +18,33 @@ export function render() {
     </div>
     <div class="chips scroll-x"><button class="chip ${!kindFilter ? 'on' : ''}" data-act="kind" data-k="">Todas</button>
       ${Object.entries(KINDS).map(([k, v]) => `<button class="chip ${kindFilter === k ? 'on' : ''}" data-act="kind" data-k="${k}">${v}</button>`).join('')}</div>
-    ${list.map(r => `<article class="card routine">
-      <div class="row between"><button class="r-title" data-act="edit" data-id="${r.id}"><b>${esc(r.name)}</b><small>${esc(KINDS[r.kind] || '')} · ${plural(r.exercises.length, 'exercício', 'exercícios')}</small></button>
-        <button class="icon-btn" data-act="more" data-id="${r.id}" aria-label="Opções">${icon('more')}</button></div>
-      <p class="muted small">${esc(r.exercises.map(e => getEx(e.exId).name).join(' · ')) || 'Sem exercícios'}</p>
-      <button class="btn primary block" data-act="start" data-id="${r.id}">${icon('play', 16)} Iniciar rotina</button></article>`).join('') || '<div class="empty">Nenhuma rotina aqui ainda.</div>'}`;
+    ${groups(list) || '<div class="empty">Nenhuma rotina aqui ainda.</div>'}`;
+}
+
+const summary = r => r.exercises.map(e => getEx(e.exId).name).join(' · ') || 'Sem exercícios';
+
+const routineCard = r => `<div class="card r-mini">
+  <button class="grow r-title" data-act="edit" data-id="${r.id}"><b>${esc(r.name)}</b><small>${plural(r.exercises.length, 'exercício', 'exercícios')} · ${esc(summary(r))}</small></button>
+  <button class="icon-btn" data-act="more" data-id="${r.id}" aria-label="Opções">${icon('more')}</button>
+  <button class="btn primary sm" data-act="start" data-id="${r.id}" aria-label="Iniciar ${esc(r.name)}">${icon('play', 14)}</button></div>`;
+
+// Rotinas do usuário primeiro; depois as fichas prontas agrupadas por programa
+function groups(list) {
+  const known = new Set(PROGRAMS.map(p => p.id));
+  const mine = list.filter(r => !known.has(r.program));
+  let html = mine.length ? `<div class="section-head"><h2>Minhas rotinas</h2></div>${mine.map(routineCard).join('')}` : '';
+  for (const p of PROGRAMS) {
+    const rs = list.filter(r => r.program === p.id);
+    if (!rs.length) continue;
+    html += `<details class="program" ${openPrograms.has(p.id) ? 'open' : ''} data-p="${p.id}"><summary><span class="grow"><b>${esc(p.name)}</b><small>${plural(rs.length, 'treino', 'treinos')}</small></span>${icon('down', 18)}</summary>
+      <p class="muted small">${esc(p.desc)}</p>${rs.map(routineCard).join('')}</details>`;
+  }
+  return html;
+}
+
+const openPrograms = new Set(['fb3']);
+export function mount(root) {
+  root.querySelectorAll('details.program').forEach(d => d.addEventListener('toggle', () => { d.open ? openPrograms.add(d.dataset.p) : openPrograms.delete(d.dataset.p); }));
 }
 
 const byId = id => state.routines.find(r => r.id === id);
@@ -97,8 +119,8 @@ export const editor = {
           <div class="ex-head"><div class="ex-title"><b>${esc(ex.name)}</b><small>${plural(e.sets.length, 'série', 'séries')} · descanso ${fmtRest(e.rest)}</small></div>
             <button class="icon-btn" data-act="exMenu" aria-label="Opções">${icon('more')}</button></div>
           <div class="set-row c${cols.length} head plan"><span>SÉRIE</span>${cols.map(c => `<span>${c[1]}</span>`).join('')}<span></span></div>
-          ${e.sets.map((s, j) => `<div class="set-row c${cols.length} plan" data-j="${j}"><span class="set-tag t-${s.type}">${s.type === 'w' ? 'A' : j + 1}</span>
-            ${cols.map(([f, l]) => `<input data-f="${f}" inputmode="decimal" placeholder="${l === 'KG' ? 'livre' : '—'}" value="${s[f] != null ? esc(fmtNum(s[f], 2)) : ''}" aria-label="${l} série ${j + 1}">`).join('')}
+          ${e.sets.map((s, j) => `<div class="set-row c${cols.length} plan" data-j="${j}"><span class="set-tag t-${s.type}">${s.type === 'w' ? 'A' : e.sets.slice(0, j + 1).filter(x => x.type !== 'w').length}</span>
+            ${cols.map(([f, l]) => `<input data-f="${f}" inputmode="${f === 'reps' ? 'text' : 'decimal'}" placeholder="${l === 'KG' ? 'livre' : f === 'reps' ? 'ex.: 8-12' : '—'}" value="${f === 'reps' && s.rmax ? `${s.reps}-${s.rmax}` : s[f] != null ? esc(fmtNum(s[f], 2)) : ''}" aria-label="${l} série ${j + 1}">`).join('')}
             <button class="icon-btn sm" data-act="delSet" aria-label="Remover série">${icon('x', 16)}</button></div>`).join('')}
           <button class="btn soft block" data-act="addSet">${icon('plus', 16)} Série</button></article>`;
       }).join('')}
@@ -109,7 +131,12 @@ export const editor = {
     const f = el.dataset.f;
     if (f === 'name' || f === 'kind') { draft[f] = el.value; return; }
     const e = draft.exercises[+el.closest('[data-i]').dataset.i];
-    e.sets[+el.closest('[data-j]').dataset.j][f] = num(el.value);
+    const set = e.sets[+el.closest('[data-j]').dataset.j];
+    if (f === 'reps') {
+      // Aceita faixa de repetições: "8-12"
+      const [a, b] = el.value.split(/[-–a]/).map(num);
+      set.reps = a; if (b && a && b > a) set.rmax = b; else delete set.rmax;
+    } else set[f] = num(el.value);
   },
   actions: {
     cancel: () => { draft = null; back('/rotinas'); },
