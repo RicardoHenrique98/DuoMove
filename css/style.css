@@ -150,6 +150,12 @@ details.program .r-mini { margin-top: 8px; }
 .t-w { color: var(--orange); }
 .t-f { color: var(--red); }
 .t-d { color: var(--purple); }
+.t-r { color: var(--blue); font-size: 11px; }
+.t-c { color: #7fe0c2; }
+.ex-card.grouped { border-left: 3px solid var(--blue); }
+.group-tag { display: flex; align-items: center; gap: 6px; color: var(--blue); font-size: 10.5px; font-weight: 800; letter-spacing: .5px; }
+.tech { font-size: 12.5px; color: #d8cdf5; background: #262035; border-radius: 10px; padding: 8px 10px; }
+.tech b { color: var(--purple); }
 .prev { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 6px 0; font-variant-numeric: tabular-nums; }
 .check { height: 34px; width: 40px; display: grid; place-items: center; border-radius: 9px; background: var(--panel3); color: var(--muted); }
 .set-row.done .check { background: var(--lime); color: var(--lime-ink); }
@@ -182,6 +188,7 @@ body.no-tabs .tabbar { display: none; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 6px; border-bottom: 1px solid var(--line); font-weight: 600; }
 .menu-item:last-child { border: 0; }
 .menu-item .ic { color: var(--muted); }
+.menu-item small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; margin-top: 2px; }
 .menu-item.danger, .menu-item.danger .ic { color: var(--red); }
 @keyframes up { from { transform: translateY(40px); opacity: .4; } }
 @keyframes fade { from { opacity: 0; } }

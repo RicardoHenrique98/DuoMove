@@ -7,6 +7,7 @@ import { go } from '../router.js';
 import { newSet, addExercisesToActive, discardActive, finishActive, updateRoutineFrom, routineFromWorkout } from '../workout.js';
 import { workoutVolume, newRecords } from '../stats.js';
 import { openPicker } from './picker.js';
+import { SET_TYPES, TECHNIQUES, applyTechnique, restAfter, isMain, groupName } from '../techniques.js';
 
 export const COLS = {
   peso: [['kg', 'KG'], ['reps', 'REPS']],
@@ -25,17 +26,25 @@ export function fmtSet(s, type) {
   return [s.km != null ? fmtNum(s.km, 2) + ' km' : '', s.min != null ? fmtNum(s.min, 1) + ' min' : ''].filter(Boolean).join(' · ') || '—';
 }
 
-export const setTag = (s, n) => s.type === 'w' ? 'A' : s.type === 'f' ? 'F' : s.type === 'd' ? 'D' : String(n);
+export const setTag = (s, n) => SET_TYPES[s.type]?.tag || String(n);
+// Técnicas presentes no exercício, para explicar na tela
+export function techList(e) {
+  const keys = new Set();
+  if (e.tech) keys.add(e.tech);
+  for (const s of e.sets) { if (s.type === 'd') keys.add('drop'); if (s.type === 'r') keys.add('restpause'); if (s.type === 'c') keys.add('cluster'); }
+  if (e.group) keys.add('superset');
+  return [...keys].filter(k => TECHNIQUES[k]);
+}
 
 const a = () => state.active;
 const findEx = el => a().exercises.find(e => e.id === el.closest('[data-ex]')?.dataset.ex);
 const findSet = (el, e) => e?.sets.find(s => s.id === el.closest('[data-set]')?.dataset.set);
 const prevFor = e => previousSets(e.exId, a().editing ? a().start : Infinity, a().editing);
 // Série equivalente da última vez: aquecimento com aquecimento, série válida com série válida
-const isW = s => s.type === 'w';
+const cat = s => isMain(s) ? 'm' : s.type;
 function prevAt(e, s, prev = prevFor(e)) {
-  const same = prev.filter(p => isW(p) === isW(s));
-  return same[e.sets.filter(x => isW(x) === isW(s)).indexOf(s)];
+  const same = prev.filter(p => cat(p) === cat(s));
+  return same[e.sets.filter(x => cat(x) === cat(s)).indexOf(s)];
 }
 
 let saveTimer;
@@ -49,11 +58,12 @@ function statsHtml() {
     <div><small>Volume</small><b>${fmtKg(vol)}</b></div><div><small>Séries</small><b>${sets}</b></div>`;
 }
 
-function exerciseCard(e) {
+function exerciseCard(e, i, all) {
   const ex = getEx(e.exId), cols = COLS[ex.type], prevAll = prevFor(e);
+  const group = e.group ? all.filter(x => x.group === e.group) : null;
   let n = 0;
   const rows = e.sets.map((s, i) => {
-    if (s.type !== 'w') n++;
+    if (isMain(s)) n++;
     const pv = prevAt(e, s, prevAll);
     const ph = f => f === 'reps' && s.t?.rmax && !s.t.coach ? `${s.t.reps}–${s.t.rmax}` : fmtNum(s.t?.[f] ?? pv?.[f] ?? '', 2);
     return `<div class="set-row c${cols.length} ${s.done ? 'done' : ''}" data-set="${s.id}">
@@ -63,12 +73,15 @@ function exerciseCard(e) {
       <button class="check" data-act="check" aria-label="Concluir série" aria-pressed="${s.done}">${icon('check', 18)}</button>
     </div>`;
   }).join('');
-  return `<article class="ex-card" data-ex="${e.id}">
+  const techs = techList(e).filter(k => k !== 'superset');
+  return `<article class="ex-card ${group ? 'grouped' : ''}" data-ex="${e.id}">
+    ${group ? `<div class="group-tag">${icon('swap', 13)} ${groupName(group.length).toUpperCase()} · ${group.indexOf(e) + 1}/${group.length}${group.indexOf(e) < group.length - 1 ? ' · sem descanso, vá para o próximo' : ' · descanse no fim da rodada'}</div>` : ''}
     <div class="ex-head">
       <button class="ex-title" data-act="exHistory"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')}</small></button>
       <button class="icon-btn" data-act="exMenu" aria-label="Opções do exercício">${icon('more')}</button>
     </div>
     ${e.coach ? `<p class="coach c-${e.coach.tone}">${icon(COACH_ICON[e.coach.tone], 15)}<span><b>Treinador:</b> ${esc(e.coach.msg)}</span></p>` : ''}
+    ${techs.map(k => `<p class="tech"><b>${esc(TECHNIQUES[k].label)}:</b> ${esc(TECHNIQUES[k].desc)}</p>`).join('')}
     ${e.tip ? `<p class="tip">${icon('bulb', 15)}<span>${esc(e.tip)}</span></p>` : ''}
     <input class="note" data-f="note" placeholder="Observação (ajuste do banco, pegada...)" value="${esc(e.notes)}" maxlength="140">
     ${ex.type !== 'cardio' ? `<button class="rest-chip" data-act="exRest">${icon('timer', 15)} Descanso: ${fmtRest(e.rest)}</button>` : ''}
@@ -89,7 +102,7 @@ export function render() {
       <button class="btn primary sm" data-act="finish">${w.editing ? 'Salvar' : 'Finalizar'}</button>
     </header>
     <div class="live-stats" id="liveStats">${statsHtml()}</div>
-    ${w.exercises.length ? w.exercises.map(exerciseCard).join('') : `<div class="empty big">${icon('dumbbell', 34)}<b>Comece adicionando um exercício</b><span>Busque na biblioteca ou crie o seu.</span></div>`}
+    ${w.exercises.length ? w.exercises.map((e, i, all) => exerciseCard(e, i, all)).join('') : `<div class="empty big">${icon('dumbbell', 34)}<b>Comece adicionando um exercício</b><span>Busque na biblioteca ou crie o seu.</span></div>`}
     <button class="btn primary block" data-act="addEx">${icon('plus', 18)} Adicionar exercício</button>
     <button class="btn danger-ghost block" data-act="discard">${w.editing ? 'Cancelar edição' : 'Descartar treino'}</button>`;
 }
@@ -141,7 +154,14 @@ export const actions = {
         return;
       }
       s.done = true;
-      startRest(e.rest);
+      const r = restAfter(a().exercises, e, s, e.rest);
+      if (r.rest) startRest(r.rest); else a().restEnd = null;
+      save(); rerender();
+      if (r.next) {
+        toast(`Sem descanso: agora ${getEx(r.next.exId).name}`);
+        document.querySelector(`[data-ex="${r.next.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
     } else s.done = false;
     save();
     rerender();
@@ -164,7 +184,8 @@ export const actions = {
     const e = findEx(el), s = findSet(el, e);
     const v = await menu('Tipo da série', [
       { label: 'Normal', value: 'n' }, { label: 'Aquecimento (A)', value: 'w' },
-      { label: 'Até a falha (F)', value: 'f' }, { label: 'Drop set (D)', value: 'd' },
+      { label: 'Até a falha (F)', value: 'f' }, { label: 'Drop set (D) — sem descanso antes', value: 'd' },
+      { label: 'Rest-pause (RP) — 15 s antes', value: 'r' }, { label: 'Cluster (C) — 20 s antes', value: 'c' },
       { label: 'Remover série', value: 'del', icon: 'trash', danger: true }
     ]);
     if (!v) return;
@@ -187,6 +208,9 @@ export const actions = {
     const v = await menu(ex.name, [
       { label: 'Trocar exercício (aparelho ocupado?)', value: 'swap', icon: 'swap' },
       { label: 'Ver histórico e recordes', value: 'hist', icon: 'chart' },
+      { label: 'Técnicas avançadas (drop, pirâmide...)', value: 'tech', icon: 'fire' },
+      ...(e.group ? [{ label: 'Desfazer bi-set', value: 'ungroup', icon: 'x' }]
+        : i < w.exercises.length - 1 ? [{ label: `Bi-set com ${getEx(w.exercises[i + 1].exId).name}`, value: 'group', icon: 'swap' }] : []),
       ...(i > 0 ? [{ label: 'Mover para cima', value: 'up', icon: 'up' }] : []),
       ...(i < w.exercises.length - 1 ? [{ label: 'Mover para baixo', value: 'down', icon: 'down' }] : []),
       { label: 'Remover exercício', value: 'del', icon: 'trash', danger: true }
@@ -197,8 +221,11 @@ export const actions = {
       save(); rerender(); toast('Exercício trocado');
     } });
     if (v === 'hist') return go('/exercicio/' + e.exId);
+    if (v === 'tech') return pickTechnique(e, rerender);
+    if (v === 'group') linkWithNext(w.exercises, i);
+    if (v === 'ungroup') unlink(w.exercises, e);
     if (v === 'up' || v === 'down') { const j = v === 'up' ? i - 1 : i + 1; [w.exercises[i], w.exercises[j]] = [w.exercises[j], w.exercises[i]]; }
-    if (v === 'del') { if (e.sets.some(s => s.done) && !(await confirmBox('Remover exercício?', 'As séries registradas dele serão perdidas.', 'Remover', true))) return; w.exercises.splice(i, 1); }
+    if (v === 'del') { if (e.sets.some(s => s.done) && !(await confirmBox('Remover exercício?', 'As séries registradas dele serão perdidas.', 'Remover', true))) return; if (e.group) unlink(w.exercises, e); w.exercises.splice(i, 1); }
     if (v) { save(); rerender(); }
   },
 
@@ -235,6 +262,40 @@ export const actions = {
     showSummary(saved);
   }
 };
+
+export async function chooseTechnique() {
+  return menu('Técnicas avançadas', [
+    ...Object.entries(TECHNIQUES).filter(([k]) => k !== 'superset').map(([k, t]) => ({ label: t.label, desc: t.desc, value: k })),
+    { label: 'Remover técnicas', value: 'clear', icon: 'x' }
+  ]);
+}
+
+async function pickTechnique(e, rerender) {
+  const key = await chooseTechnique();
+  if (!key) return;
+  const prev = prevFor(e);
+  e.sets = applyTechnique(key, e.sets, {
+    tgt: s => (s.t ||= {}),
+    make: (t, type) => newSet(t, type),
+    locked: s => s.done,
+    baseKg: s => s.kg ?? s.t?.kg ?? prevAt(e, s, prev)?.kg ?? null
+  });
+  e.tech = key.startsWith('pyr') ? key : key === 'clear' ? null : e.tech;
+  save(); rerender();
+  if (key !== 'clear') toast(`${TECHNIQUES[key].label} aplicado`);
+}
+
+// Bi-set / tri-set: exercícios vizinhos com o mesmo grupo
+export function linkWithNext(list, i) {
+  const a = list[i], b = list[i + 1];
+  const g = a.group || b.group || 'g' + Date.now().toString(36);
+  a.group = b.group = g;
+}
+export function unlink(list, e) {
+  const g = e.group, members = list.filter(x => x.group === g);
+  e.group = null;
+  if (members.length <= 2) members.forEach(x => { x.group = null; });
+}
 
 function showSummary(w) {
   const recs = newRecords(w), r = state.routines.find(x => x.id === w.routineId);

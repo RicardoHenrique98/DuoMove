@@ -7,6 +7,7 @@ import { repeatWorkout, editWorkout, routineFromWorkout } from '../workout.js';
 import { workoutVolume, workoutSets, workoutKm, newRecords } from '../stats.js';
 import { workoutCard } from './home.js';
 import { fmtSet, setTag } from './live.js';
+import { isMain } from '../techniques.js';
 
 export function render() {
   const list = sortedWorkouts();
@@ -46,7 +47,7 @@ export const detail = {
         const total = ex.type === 'cardio' ? e.sets.reduce((a, s) => ({ km: a.km + (s.km || 0), min: a.min + (s.min || 0) }), { km: 0, min: 0 }) : null;
         return `<article class="card ex-done"><button class="ex-title" data-act="exercise" data-ex="${ex.id}"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')}</small></button>
           ${e.notes ? `<p class="muted small">“${esc(e.notes)}”</p>` : ''}
-          ${e.sets.map(s => { if (s.type !== 'w') n++; return `<div class="done-set"><span class="set-tag t-${s.type}">${setTag(s, n)}</span><span>${esc(fmtSet(s, ex.type))}</span></div>`; }).join('')}
+          ${e.sets.map(s => { if (isMain(s)) n++; return `<div class="done-set"><span class="set-tag t-${s.type}">${setTag(s, n)}</span><span>${esc(fmtSet(s, ex.type))}</span></div>`; }).join('')}
           ${total && total.km ? `<small class="muted">Ritmo médio ${fmtPace(total.km, total.min)}</small>` : ''}</article>`;
       }).join('')}
       <button class="btn primary block" data-act="repeat" data-id="${w.id}">${icon('play', 16)} Repetir este treino</button>`;

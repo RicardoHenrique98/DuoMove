@@ -67,7 +67,7 @@ export function sheet(html, handlers = {}, { full = false, onClose } = {}) {
 export function menu(title, items) {
   return new Promise(resolve => {
     const m = sheet(`<h3 class="sheet-title">${esc(title)}</h3><div class="menu">${items.map((it, i) =>
-      `<button class="menu-item ${it.danger ? 'danger' : ''}" data-act="pick" data-i="${i}">${it.icon ? icon(it.icon) : ''}<span>${esc(it.label)}</span></button>`).join('')}</div>
+      `<button class="menu-item ${it.danger ? 'danger' : ''}" data-act="pick" data-i="${i}">${it.icon ? icon(it.icon) : ''}<span>${esc(it.label)}${it.desc ? `<small>${esc(it.desc)}</small>` : ''}</span></button>`).join('')}</div>
       <button class="btn ghost block" data-act="close">Cancelar</button>`,
       { pick: (el, api) => { resolve(items[+el.dataset.i].value); api.close(); } },
       { onClose: () => resolve(null) });

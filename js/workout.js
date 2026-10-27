@@ -41,7 +41,7 @@ function begin(w) {
 
 export async function startFromRoutine(r) {
   if (!(await canStart())) return;
-  begin({ name: r.name, routineId: r.id, kind: r.kind, exercises: r.exercises.map(e => newExercise(e.exId, e.sets, e.rest, e.notes)) });
+  begin({ name: r.name, routineId: r.id, kind: r.kind, exercises: r.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest, e.notes), group: e.group || null, tech: e.tech || null })) });
 }
 
 export async function startEmpty() {
@@ -57,7 +57,7 @@ export async function startFromExercises(name, exIds) {
 
 export async function repeatWorkout(w) {
   if (!(await canStart())) return;
-  begin({ name: w.name, routineId: w.routineId, exercises: w.exercises.map(e => newExercise(e.exId, e.sets, e.rest)) });
+  begin({ name: w.name, routineId: w.routineId, exercises: w.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest), group: e.group || null, tech: e.tech || null })) });
 }
 
 // Edita um treino do histórico usando a mesma tela do treino em andamento
@@ -84,7 +84,7 @@ export function discardActive() {
 export function finishActive() {
   const a = state.active;
   const exercises = a.exercises
-    .map(e => ({ id: e.id, exId: e.exId, rest: e.rest, notes: e.notes, sets: e.sets.filter(s => s.done).map(s => ({ type: s.type, ...pick(s), done: true })) }))
+    .map(e => ({ id: e.id, exId: e.exId, rest: e.rest, notes: e.notes, group: e.group || null, tech: e.tech || null, sets: e.sets.filter(s => s.done).map(s => ({ type: s.type, ...pick(s), done: true })) }))
     .filter(e => e.sets.length);
   if (!exercises.length) return null;
   const w = { id: a.editing || a.id, name: a.name.trim() || 'Treino', routineId: a.routineId || null, kind: a.kind || null, notes: a.notes || '', start: a.start, end: a.editing ? a.end : Date.now(), exercises };
@@ -98,7 +98,7 @@ export function finishActive() {
 export function routineFromWorkout(w, name = w.name) {
   return {
     id: uid(), name, kind: w.kind || 'musculacao', created: Date.now(),
-    exercises: w.exercises.map(e => ({ id: uid(), exId: e.exId, rest: e.rest, notes: '', sets: e.sets.map(s => ({ type: s.type || 'n', ...pick(s) })) }))
+    exercises: w.exercises.map(e => ({ id: uid(), exId: e.exId, rest: e.rest, notes: '', group: e.group || null, tech: e.tech || null, sets: e.sets.map(s => ({ type: s.type || 'n', ...pick(s) })) }))
   };
 }
 

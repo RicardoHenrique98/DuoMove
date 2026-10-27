@@ -5,7 +5,8 @@ import { icon, menu, confirmBox, toast, sheet } from '../ui.js';
 import { go, back } from '../router.js';
 import { startFromRoutine, startFromExercises } from '../workout.js';
 import { openPicker } from './picker.js';
-import { COLS } from './live.js';
+import { COLS, chooseTechnique, linkWithNext, unlink, techList } from './live.js';
+import { applyTechnique, isMain, SET_TYPES, TECHNIQUES, groupName } from '../techniques.js';
 
 let kindFilter = '';
 
@@ -115,11 +116,15 @@ export const editor = {
       <label class="field"><span>Modalidade</span><select data-f="kind">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}" ${draft.kind === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       ${draft.exercises.map((e, i) => {
         const ex = getEx(e.exId), cols = COLS[ex.type];
-        return `<article class="ex-card" data-i="${i}">
+        const group = e.group ? draft.exercises.filter(x => x.group === e.group) : null;
+        const techs = techList(e).filter(k => k !== 'superset');
+        return `<article class="ex-card ${group ? 'grouped' : ''}" data-i="${i}">
+          ${group ? `<div class="group-tag">${icon('swap', 13)} ${groupName(group.length).toUpperCase()} · ${group.indexOf(e) + 1}/${group.length}</div>` : ''}
           <div class="ex-head"><div class="ex-title"><b>${esc(ex.name)}</b><small>${plural(e.sets.length, 'série', 'séries')} · descanso ${fmtRest(e.rest)}</small></div>
             <button class="icon-btn" data-act="exMenu" aria-label="Opções">${icon('more')}</button></div>
+          ${techs.map(k => `<p class="tech"><b>${esc(TECHNIQUES[k].label)}:</b> ${esc(TECHNIQUES[k].desc)}</p>`).join('')}
           <div class="set-row c${cols.length} head plan"><span>SÉRIE</span>${cols.map(c => `<span>${c[1]}</span>`).join('')}<span></span></div>
-          ${e.sets.map((s, j) => `<div class="set-row c${cols.length} plan" data-j="${j}"><span class="set-tag t-${s.type}">${s.type === 'w' ? 'A' : e.sets.slice(0, j + 1).filter(x => x.type !== 'w').length}</span>
+          ${e.sets.map((s, j) => `<div class="set-row c${cols.length} plan" data-j="${j}"><span class="set-tag t-${s.type}">${SET_TYPES[s.type]?.tag || e.sets.slice(0, j + 1).filter(isMain).length}</span>
             ${cols.map(([f, l]) => `<input data-f="${f}" inputmode="${f === 'reps' ? 'text' : 'decimal'}" placeholder="${l === 'KG' ? 'livre' : f === 'reps' ? 'ex.: 8-12' : '—'}" value="${f === 'reps' && s.rmax ? `${s.reps}-${s.rmax}` : s[f] != null ? esc(fmtNum(s[f], 2)) : ''}" aria-label="${l} série ${j + 1}">`).join('')}
             <button class="icon-btn sm" data-act="delSet" aria-label="Remover série">${icon('x', 16)}</button></div>`).join('')}
           <button class="btn soft block" data-act="addSet">${icon('plus', 16)} Série</button></article>`;
@@ -162,6 +167,9 @@ export const editor = {
       const v = await menu(getEx(e.exId).name, [
         { label: 'Tempo de descanso', value: 'rest', icon: 'timer' },
         { label: 'Trocar exercício', value: 'swap', icon: 'swap' },
+        { label: 'Técnicas avançadas (drop, pirâmide...)', value: 'tech', icon: 'fire' },
+        ...(e.group ? [{ label: 'Desfazer bi-set', value: 'ungroup', icon: 'x' }]
+          : i < draft.exercises.length - 1 ? [{ label: `Bi-set com ${getEx(draft.exercises[i + 1].exId).name}`, value: 'group', icon: 'swap' }] : []),
         ...(i > 0 ? [{ label: 'Mover para cima', value: 'up', icon: 'up' }] : []),
         ...(i < draft.exercises.length - 1 ? [{ label: 'Mover para baixo', value: 'down', icon: 'down' }] : []),
         { label: 'Remover', value: 'del', icon: 'trash', danger: true }]);
@@ -170,8 +178,16 @@ export const editor = {
         if (r != null) e.rest = +r;
       }
       if (v === 'swap') return openPicker({ multi: false, muscle: getEx(e.exId).muscle, title: 'Trocar exercício', onDone: ([id]) => { e.exId = id; rerender(); } });
+      if (v === 'tech') {
+        const key = await chooseTechnique();
+        if (!key) return;
+        e.sets = applyTechnique(key, e.sets, { tgt: x => x, make: (t, type) => ({ type, ...t }), locked: () => false, baseKg: x => x.kg ?? null });
+        e.tech = key.startsWith('pyr') ? key : key === 'clear' ? null : e.tech;
+      }
+      if (v === 'group') linkWithNext(draft.exercises, i);
+      if (v === 'ungroup') unlink(draft.exercises, e);
       if (v === 'up' || v === 'down') { const j = v === 'up' ? i - 1 : i + 1; [draft.exercises[i], draft.exercises[j]] = [draft.exercises[j], draft.exercises[i]]; }
-      if (v === 'del') draft.exercises.splice(i, 1);
+      if (v === 'del') { if (e.group) unlink(draft.exercises, e); draft.exercises.splice(i, 1); }
       if (v) rerender();
     }
   }

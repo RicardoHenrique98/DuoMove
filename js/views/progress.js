@@ -7,6 +7,7 @@ import { weekly, weekStreak, muscleSplit, workoutVolume, exerciseSessions, sessi
 import { barChart, lineChart } from '../charts.js';
 import { filterExercises, exerciseRow, muscleChips } from './picker.js';
 import { fmtSet, setTag } from './live.js';
+import { isMain } from '../techniques.js';
 
 let metric = 'count';
 
@@ -95,7 +96,7 @@ export const exercise = {
         ${lineChart(pts, v => exMetric === 'pace' ? fmtPace(1, v) : fmtNum(v, 1), 'Evolução')}</section>
       <div class="section-head"><h2>Histórico</h2></div>
       ${sessions.length ? sessions.slice(0, 30).map(({ w, e }) => { let n = 0; return `<button class="card ex-done" data-act="workout" data-id="${w.id}"><div class="row between"><b>${esc(w.name)}</b><small class="muted">${fmtDate(w.start, { day: '2-digit', month: 'short', year: '2-digit' })}</small></div>
-        ${e.sets.map(s => { if (s.type !== 'w') n++; return `<div class="done-set"><span class="set-tag t-${s.type}">${setTag(s, n)}</span><span>${esc(fmtSet(s, ex.type))}</span></div>`; }).join('')}</button>`; }).join('')
+        ${e.sets.map(s => { if (isMain(s)) n++; return `<div class="done-set"><span class="set-tag t-${s.type}">${setTag(s, n)}</span><span>${esc(fmtSet(s, ex.type))}</span></div>`; }).join('')}</button>`; }).join('')
         : '<div class="empty">Você ainda não fez este exercício.</div>'}`;
   },
   actions: {

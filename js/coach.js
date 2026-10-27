@@ -5,6 +5,7 @@
 import { state, getEx } from './store.js';
 import { exerciseSessions } from './stats.js';
 import { fmtNum } from './util.js';
+import { isMain } from './techniques.js';
 
 const LOWER = new Set(['quadriceps', 'posterior', 'gluteos', 'adutores', 'panturrilha']);
 
@@ -17,7 +18,7 @@ function increment(ex) {
 
 const roundTo = (kg, step) => Math.max(step, Math.round(kg / step) * step);
 const kgTxt = kg => `${fmtNum(kg, 2)} kg`;
-const working = sets => sets.filter(s => s.type !== 'w' && s.done !== false);
+const working = sets => sets.filter(s => isMain(s) && s.done !== false);
 
 function defaultRange(reps) {
   const avg = reps.reduce((a, b) => a + b, 0) / (reps.length || 1);
@@ -33,7 +34,8 @@ export function suggest(exId, targets = []) {
   const ex = getEx(exId);
   if (!['peso', 'corpo', 'tempo'].includes(ex.type)) return null;
 
-  const tw = targets.find(t => t.type !== 'w');
+  const mt = targets.filter(isMain);
+  const tw = mt[0];
   const sessions = exerciseSessions(exId).filter(x => x.w.id !== state.active?.id);
   const last = sessions[0] ? working(sessions[0].e.sets) : [];
 
@@ -46,51 +48,62 @@ export function suggest(exId, targets = []) {
     return { tone: 'new', msg: `Primeira vez: escolha uma carga que permita ${range} repetições com 1–2 sobrando.`, sets: [] };
   }
 
-  const count = targets.length || last.length;
-  const tgt = i => targets[i] || targets.at(-1) || { type: 'n' };
-
   if (ex.type === 'tempo') {
     const best = Math.max(...last.map(s => s.sec || 0));
     if (!best) return null;
     const sec = best + 5;
-    return { tone: 'up', msg: `Última vez: ${best}s. Tente ${sec}s hoje.`, sets: Array.from({ length: count }, () => ({ sec })) };
+    return { tone: 'up', msg: `Última vez: ${best}s. Tente ${sec}s hoje.`, sets: Array.from({ length: targets.length || last.length }, () => ({ sec })) };
   }
 
+  // Faixa de cada série (pirâmides têm faixas diferentes por série)
+  const rangeAt = i => { const t = mt[i] || mt.at(-1); return t?.reps ? [t.reps, t.rmax ?? t.reps] : [lo, hi]; };
   const reps = last.map(s => s.reps || 0);
-  const allTop = reps.every(r => r >= hi);
-  const allMin = reps.every(r => r >= lo);
+  const allTop = reps.every((r, i) => r >= rangeAt(i)[1]);
+  const allMin = reps.every((r, i) => r >= rangeAt(i)[0]);
+  const count = targets.length || last.length;
+  const tgt = i => targets[i] || targets.at(-1) || { type: 'n' };
 
   if (ex.type === 'corpo') {
-    if (allTop) return { tone: 'up', msg: `Você bateu ${hi} repetições em todas as séries. Deixe mais difícil: adicione carga, faça pausa embaixo ou use uma variação.`, sets: Array.from({ length: count }, () => ({ reps: hi })) };
-    return { tone: 'keep', msg: 'Tente 1 repetição a mais em cada série.', sets: Array.from({ length: count }, (_, i) => ({ reps: Math.min(hi, (reps[i] ?? reps.at(-1)) + 1) })) };
+    if (allTop) return { tone: 'up', msg: `Você bateu ${hi} repetições em todas as séries. Deixe mais difícil: adicione carga, faça pausa embaixo ou use uma variação.`, sets: Array.from({ length: count }, (_, i) => isMain(tgt(i)) ? { reps: hi } : {}) };
+    let n = 0;
+    return { tone: 'keep', msg: 'Tente 1 repetição a mais em cada série.', sets: Array.from({ length: count }, (_, i) => { if (!isMain(tgt(i))) return {}; const k = n++; return { reps: Math.min(rangeAt(k)[1], (reps[k] ?? reps.at(-1)) + 1) }; }) };
   }
 
-  const kg = Math.max(...last.map(s => s.kg || 0));
+  const kgs = last.map(s => s.kg || 0);
+  const kg = Math.max(...kgs);
   if (!kg) return null;
   const inc = increment(ex);
   const step = inc === 2 ? 1 : 2.5;
   const prev2 = sessions[1] ? working(sessions[1].e.sets) : [];
-  const stalled = !allMin && prev2.length && prev2.some(s => (s.reps || 0) < lo) && Math.max(...prev2.map(s => s.kg || 0)) >= kg;
+  const stalled = !allMin && prev2.length && prev2.some((s, i) => (s.reps || 0) < rangeAt(i)[0]) && Math.max(...prev2.map(s => s.kg || 0)) >= kg;
+  const baseAt = i => kgs[i] || kgs.at(-1) || kg;
 
-  let tone, msg, nk, repFor;
+  let tone, msg, kgFor, repFor;
   if (allTop) {
-    nk = kg + inc; tone = 'up'; repFor = () => lo;
-    msg = `Você fez ${hi}+ repetições em todas as séries. Suba para ${kgTxt(nk)} e mire em ${range}.`;
+    tone = 'up'; kgFor = i => baseAt(i) + inc; repFor = i => rangeAt(i)[0];
+    msg = `Você bateu o topo da faixa em todas as séries. Suba para ${kgTxt(kg + inc)} e mire em ${range}.`;
   } else if (allMin) {
-    nk = kg; tone = 'keep'; repFor = i => Math.min(hi, (reps[i] ?? reps.at(-1)) + 1);
+    tone = 'keep'; kgFor = baseAt; repFor = i => Math.min(rangeAt(i)[1], (reps[i] ?? reps.at(-1)) + 1);
     msg = `Mantenha ${kgTxt(kg)} e tente 1 repetição a mais por série (até ${hi}).`;
   } else if (stalled) {
-    nk = roundTo(kg * 0.9, step); tone = 'down'; repFor = () => lo;
-    msg = `Duas sessões abaixo de ${lo} repetições. Recue para ${kgTxt(nk)} e reconstrua — isso faz parte da evolução.`;
+    tone = 'down'; kgFor = i => roundTo(baseAt(i) * 0.9, step); repFor = i => rangeAt(i)[0];
+    msg = `Duas sessões abaixo de ${lo} repetições. Recue para ${kgTxt(roundTo(kg * 0.9, step))} e reconstrua — isso faz parte da evolução.`;
   } else {
-    nk = kg; tone = 'keep'; repFor = () => lo;
+    tone = 'keep'; kgFor = baseAt; repFor = i => rangeAt(i)[0];
     msg = `Mantenha ${kgTxt(kg)} e busque pelo menos ${lo} repetições em todas as séries.`;
   }
 
-  let n = 0;
+  // Aquecimento ~50%; drop sets descem ~20% a partir da série anterior; rest-pause e cluster mantêm a carga
+  let n = 0, prevKg = null;
+  const firstKg = kgFor(0);
   const sets = Array.from({ length: count }, (_, i) => {
-    if (tgt(i).type === 'w') return { kg: roundTo(nk * 0.5, step), reps: 10 };
-    return { kg: nk, reps: repFor(n++) };
+    const t = tgt(i);
+    if (t.type === 'w') return { kg: roundTo(firstKg * 0.5, step), reps: 10 };
+    if (t.type === 'd') { prevKg = prevKg ? roundTo(prevKg * 0.8, 0.5) : null; return prevKg ? { kg: prevKg } : {}; }
+    if (t.type === 'r' || t.type === 'c') return prevKg ? { kg: prevKg } : {};
+    const k = n++;
+    prevKg = kgFor(k);
+    return { kg: prevKg, reps: repFor(k) };
   });
   return { tone, msg, sets };
 }
