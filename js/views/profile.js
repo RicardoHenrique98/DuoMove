@@ -2,6 +2,7 @@ import { state, save, exportData, replaceState, resetState } from '../store.js';
 import { esc, fmtRest, fmtDate } from '../util.js';
 import { icon, menu, confirmBox, toast } from '../ui.js';
 import { rerender } from '../router.js';
+import { applyTheme } from '../theme.js';
 
 const GOALS = ['Ganhar força', 'Ganhar massa muscular', 'Emagrecer', 'Ganhar condicionamento', 'Melhorar saúde e bem-estar', 'Preparar-me para uma prova'];
 
@@ -14,6 +15,7 @@ export function render() {
       <label class="field"><span>Objetivo secundário</span><select data-f="goal2"><option value="">Nenhum</option>${GOALS.filter(g => g !== p.goal).map(g => `<option ${p.goal2 === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
       <button class="setting" data-act="rest"><span>Descanso padrão entre séries</span><b>${fmtRest(p.rest)}</b></button>
       <label class="setting"><span>Sugestões de carga do treinador</span><input type="checkbox" data-f="coach" ${p.coach !== false ? 'checked' : ''}></label>
+      <button class="setting" data-act="theme"><span>Tema</span><b>${{ dark: 'Escuro', light: 'Claro (creme)', auto: 'Automático' }[p.theme || 'dark']}</b></button>
       <label class="setting"><span>Som e vibração ao fim do descanso</span><input type="checkbox" data-f="sound" ${p.sound ? 'checked' : ''}></label>
     </section>
     <section class="card">
@@ -53,6 +55,11 @@ async function importFile(file) {
 }
 
 export const actions = {
+  async theme(el, rr) {
+    const v = await menu('Tema', [{ label: 'Escuro (padrão)', value: 'dark' }, { label: 'Claro (creme Duo)', value: 'light' }, { label: 'Automático (segue o celular)', value: 'auto' }]);
+    if (!v) return;
+    state.profile.theme = v; save(); applyTheme(); rr();
+  },
   async rest(el, rr) {
     const v = await menu('Descanso padrão', [30, 45, 60, 75, 90, 120, 150, 180, 240].map(x => ({ label: fmtRest(x), value: String(x) })));
     if (v) { state.profile.rest = +v; save(); rr(); }

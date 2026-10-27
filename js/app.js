@@ -1,4 +1,5 @@
 import { state, save } from './store.js';
+import { applyTheme } from './theme.js';
 import { route, onRender, rerender, go } from './router.js';
 import { icon, beep, toast } from './ui.js';
 import { esc, fmtClock } from './util.js';
@@ -25,6 +26,8 @@ route(/^\/plano$/, plan.page);
 route(/^\/plano\/novo$/, plan.wizard);
 
 const TABS = [['/inicio', 'home', 'Início'], ['/rotinas', 'list', 'Treinar'], ['/historico', 'clock', 'Histórico'], ['/progresso', 'chart', 'Progresso'], ['/perfil', 'user', 'Perfil']];
+
+applyTheme();
 
 const app = document.getElementById('app');
 app.innerHTML = `<main id="view" class="view"></main><div id="mini"></div><div id="rest"></div>
