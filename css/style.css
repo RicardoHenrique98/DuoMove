@@ -373,3 +373,14 @@ body.no-tabs .tabbar { display: none; }
 .swap-opt.best { border-color: var(--accent); background: var(--accent-soft); }
 .swap-badge { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 4px; font-size: 11px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--accent-text); }
 .swap-why { color: var(--muted); font-size: 12.5px; padding-left: 56px; }
+
+/* Exercício próprio */
+.create-row { color: var(--accent-text); }
+.create-row .ic { width: 40px; flex: none; }
+.create-row b { color: var(--accent-text); }
+.photo-pick { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.photo-pick small { display: block; color: var(--muted); font-size: 12.5px; }
+.photo-box { width: 64px; height: 64px; border-radius: 14px; background: var(--panel2); border: 1px dashed var(--line); display: grid; place-items: center; overflow: hidden; color: var(--muted); flex: none; }
+.photo-box img { width: 100%; height: 100%; object-fit: cover; }
+.demo.photo { background: var(--panel2); }
+.demo.photo img { object-fit: cover; }

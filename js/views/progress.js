@@ -1,11 +1,11 @@
-import { state, getEx } from '../store.js';
+import { state, save, getEx } from '../store.js';
 import { MUSCLES, EQUIP, imgUrl, IMG_ERR } from '../data.js';
 import { esc, fmtDate, fmtKg, fmtNum, fmtPace, plural } from '../util.js';
-import { icon } from '../ui.js';
-import { go, back } from '../router.js';
+import { icon, confirmBox, toast } from '../ui.js';
+import { go, back, currentRoute } from '../router.js';
 import { weekly, weekStreak, muscleSplit, workoutVolume, exerciseSessions, sessionBest, records } from '../stats.js';
 import { barChart, lineChart } from '../charts.js';
-import { filterExercises, exerciseRow, muscleChips, limited } from './picker.js';
+import { filterExercises, exerciseRow, muscleChips, limited, openCreate } from './picker.js';
 import { fmtSet, setTag } from './live.js';
 import { isMain } from '../techniques.js';
 
@@ -51,12 +51,13 @@ export const actions = {
 /* ---------- Biblioteca ---------- */
 
 let libQ = '', libM = null;
-const libRows = list => { const { items, more } = limited(list); return items.map(e => exerciseRow(e, `data-act="exercise" data-id="${e.id}"`, icon('chevron', 16))).join('') + more; };
+const libRows = list => { const { items, more } = limited(list); return items.map(e => exerciseRow(e, `data-act="exercise" data-id="${e.id}"`, icon('chevron', 16))).join('') + more
+  + `<button class="ex-row create-row" data-act="create">${icon('plus', 18)}<span class="grow"><b>${libQ ? `Criar “${esc(libQ)}”` : 'Não achou? Crie seu exercício'}</b><small>Com foto do aparelho, se quiser</small></span></button>`; };
 export const library = {
   hideTabs: true,
   render() {
     const list = filterExercises(libQ, libM);
-    return `<header class="live-head"><button class="icon-btn" data-act="back" aria-label="Voltar">${icon('back')}</button><b class="grow center">Biblioteca</b><span class="pill">${list.length}</span></header>
+    return `<header class="live-head"><button class="icon-btn" data-act="back" aria-label="Voltar">${icon('back')}</button><b class="grow center">Biblioteca</b><button class="btn soft sm" data-act="create">${icon('plus', 14)} Criar</button></header>
       <label class="search">${icon('search', 18)}<input type="search" placeholder="Buscar exercício" data-f="q" value="${esc(libQ)}" autocomplete="off"></label>
       ${muscleChips(libM)}
       <div class="card list" id="libList">${libRows(list)}</div>`;
@@ -68,6 +69,7 @@ export const library = {
   actions: {
     back: () => back('/progresso'),
     muscle: (el, rerender) => { libM = el.dataset.m || null; rerender(); },
+    create: () => openCreate({ name: libQ, muscle: libM, onCreated: ex => go('/exercicio/' + ex.id) }),
     exercise: el => go('/exercicio/' + el.dataset.id)
   }
 };
@@ -98,12 +100,13 @@ export const exercise = {
     const recCards = ex.type === 'peso' ? [['Maior carga', rec.kg ? fmtNum(rec.kg, 2) + ' kg' : '—'], ['1RM estimado', rec.e1rm ? fmtNum(rec.e1rm, 1) + ' kg' : '—'], ['Melhor volume', rec.volume ? fmtKg(rec.volume) : '—']]
       : ex.type === 'corpo' ? [['Mais repetições', rec.reps || '—']] : ex.type === 'tempo' ? [['Maior tempo', rec.sec ? rec.sec + 's' : '—']]
       : [['Maior distância', rec.km ? fmtNum(rec.km, 2) + ' km' : '—'], ['Melhor ritmo', rec.pace ? fmtPace(1, rec.pace) : '—']];
-    const demo = ex.img ? `<div class="demo" data-act="demo" aria-label="Demonstração do exercício"><img src="${imgUrl(ex.img, 0)}" alt="${esc(ex.name)} — posição inicial" loading="lazy" ${IMG_ERR}><img src="${imgUrl(ex.img, 1)}" alt="${esc(ex.name)} — posição final" loading="lazy" class="b" ${IMG_ERR}></div>` : '';
+    const demo = ex.photo ? `<div class="demo photo"><img src="${ex.photo}" alt="Foto do aparelho: ${esc(ex.name)}"></div>` : ex.img ? `<div class="demo" data-act="demo" aria-label="Demonstração do exercício"><img src="${imgUrl(ex.img, 0)}" alt="${esc(ex.name)} — posição inicial" loading="lazy" ${IMG_ERR}><img src="${imgUrl(ex.img, 1)}" alt="${esc(ex.name)} — posição final" loading="lazy" class="b" ${IMG_ERR}></div>` : '';
     return `<header class="live-head"><button class="icon-btn" data-act="back" aria-label="Voltar">${icon('back')}</button><b class="grow center">Exercício</b><span></span></header>
       ${demo}
       <h1 class="detail-title">${esc(ex.name)}</h1>
-      <p class="muted">${esc(MUSCLES[ex.muscle] || '')} · ${esc(EQUIP[ex.equip] || '')}</p>
-      ${ex.img ? `<section class="card" id="howto" data-img="${esc(ex.img)}"><b>Como fazer</b><ol class="tips">${howtoHtml(ex.img)}</ol></section>` : ''}
+      <p class="muted">${esc(MUSCLES[ex.muscle] || '')} · ${esc(EQUIP[ex.equip] || '')}${ex.brand ? ' · ' + esc(ex.brand) : ''}</p>
+      ${ex.custom ? `<section class="card"><div class="row between"><b>Exercício criado por você</b><span class="row gap"><button class="btn soft sm" data-act="editCustom">${icon('edit', 14)} Editar</button><button class="btn danger-ghost sm" data-act="delCustom">${icon('trash', 14)}</button></span></div>${ex.tip ? `<p class="small" style="margin-top:8px">${esc(ex.tip)}</p>` : ''}</section>`
+        : `<section class="card" id="howto" data-img="${esc(ex.img || ex.id)}"><b>Como fazer</b><ol class="tips">${howtoHtml(ex.img || ex.id)}</ol></section>`}
       <div class="kpi-cards">${recCards.map(([l, v]) => `<div class="card"><small>${l}</small><b>${v}</b></div>`).join('')}</div>
       <section class="card"><div class="chips">${metrics.map(([k, l]) => `<button class="chip ${exMetric === k ? 'on' : ''}" data-act="exMetric" data-k="${k}">${l}</button>`).join('')}</div>
         ${lineChart(pts, v => exMetric === 'pace' ? fmtPace(1, v) : fmtNum(v, 1), 'Evolução')}</section>
@@ -119,6 +122,13 @@ export const exercise = {
   actions: {
     back: () => back('/progresso'),
     exMetric: (el, rerender) => { exMetric = el.dataset.k; rerender(); },
+    editCustom: (el, rerender) => { const id = currentRoute().params[0]; openCreate({ existing: getEx(id), onCreated: () => rerender() }); },
+    async delCustom() {
+      const id = currentRoute().params[0];
+      const used = state.workouts.some(w => w.exercises.some(e => e.exId === id)) || state.routines.some(r => r.exercises.some(e => e.exId === id));
+      if (!(await confirmBox('Excluir exercício?', used ? 'Ele aparece em treinos ou rotinas: lá vai ficar como “Exercício removido”.' : 'Ele sai da sua biblioteca.', 'Excluir', true))) return;
+      state.custom = state.custom.filter(e => e.id !== id); save(); back('/exercicios'); toast('Exercício excluído');
+    },
     workout: el => go('/historico/' + el.dataset.id)
   }
 };

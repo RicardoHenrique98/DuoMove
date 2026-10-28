@@ -67,24 +67,24 @@ export const PHASES = {
 
 // Padrões de movimento → exercícios, do mais estável (bom para readaptação) ao mais exigente
 const POOLS = {
-  squat: ['leg-press', 'agachamento-goblet', 'agachamento-smith', 'agachamento-livre', 'hack', 'agachamento-corpo'],
+  squat: ['leg-press', 'agachamento-goblet', 'agachamento-smith', 'agachamento-livre', 'hack', 'agachamento-corpo', 'agachamento-pendulo', 'leg-press-horizontal', 'belt-squat'],
   hinge: ['terra-romeno', 'stiff', 'levantamento-terra', 'ponte-gluteo'],
   lunge: ['afundo', 'step-up', 'bulgaro', 'passada', 'afundo-corpo'],
-  hpush: ['chest-press', 'supino-reto-halter', 'supino-reto-barra', 'supino-smith', 'flexao'],
-  incline: ['supino-inclinado-halter', 'supino-inclinado-barra', 'flexao'],
+  hpush: ['chest-press', 'supino-reto-halter', 'supino-reto-barra', 'supino-smith', 'supino-articulado', 'flexao'],
+  incline: ['supino-inclinado-halter', 'supino-inclinado-barra', 'supino-inclinado-maquina', 'flexao'],
   vpush: ['desenvolvimento-maquina', 'desenvolvimento-halter', 'desenvolvimento-barra', 'arnold', 'flexao-pike'],
-  vpull: ['puxada-frontal', 'puxada-supinada', 'puxada-triangulo', 'barra-assistida', 'barra-fixa', 'remada-invertida'],
-  hpull: ['remada-maquina', 'remada-baixa', 'remada-unilateral', 'remada-curvada', 'remada-cavalinho', 'remada-invertida'],
+  vpull: ['puxada-frontal', 'puxada-supinada', 'puxada-triangulo', 'barra-assistida', 'barra-fixa', 'remada-invertida', 'puxada-articulada'],
+  hpull: ['remada-maquina', 'remada-baixa', 'remada-unilateral', 'remada-curvada', 'remada-cavalinho', 'remada-invertida', 'remada-articulada'],
   fly: ['voador', 'crossover', 'crucifixo-halter'],
-  side: ['elevacao-lateral', 'elevacao-lateral-polia', 'flexao-pike'],
+  side: ['elevacao-lateral', 'elevacao-lateral-polia', 'elevacao-lateral-maquina', 'flexao-pike'],
   rear: ['voador-inverso', 'face-pull', 'crucifixo-inverso', 'superman'],
-  biceps: ['rosca-alternada', 'rosca-polia', 'rosca-direta', 'rosca-martelo', 'rosca-scott', 'rosca-inclinada'],
-  triceps: ['triceps-polia', 'triceps-corda', 'triceps-frances', 'triceps-testa', 'mergulho-banco'],
+  biceps: ['rosca-alternada', 'rosca-polia', 'rosca-direta', 'rosca-martelo', 'rosca-scott', 'rosca-inclinada', 'rosca-maquina'],
+  triceps: ['triceps-polia', 'triceps-corda', 'triceps-frances', 'triceps-testa', 'triceps-maquina', 'mergulho-banco'],
   quad: ['cadeira-extensora', 'step-up', 'agachamento-corpo', 'afundo-corpo'],
-  ham: ['mesa-flexora', 'cadeira-flexora', 'terra-romeno', 'ponte-gluteo'],
-  glute: ['elevacao-quadril', 'abdutora', 'coice-polia', 'ponte-gluteo', 'x-barbell-glute-bridge', 'x-smith-machine-hip-raise'],
+  ham: ['mesa-flexora', 'cadeira-flexora', 'terra-romeno', 'ponte-gluteo', 'flexora-em-pe'],
+  glute: ['elevacao-quadril', 'abdutora', 'coice-polia', 'ponte-gluteo', 'x-barbell-glute-bridge', 'x-smith-machine-hip-raise', 'hip-thrust-maquina', 'gluteo-maquina'],
   calves: ['panturrilha-pe', 'panturrilha-sentado', 'panturrilha-leg', 'panturrilha-halter', 'panturrilha-corpo'],
-  core: ['prancha', 'dead-bug', 'abdominal-polia', 'elevacao-pernas', 'roda-abdominal', 'abdominal']
+  core: ['prancha', 'dead-bug', 'abdominal-polia', 'elevacao-pernas', 'roda-abdominal', 'abdominal', 'abdominal-maquina']
 };
 // Exercícios que o treinador evita na readaptação e para iniciantes no primeiro ciclo
 const DEMANDING = new Set(['agachamento-livre', 'levantamento-terra', 'good-morning', 'supino-reto-barra', 'desenvolvimento-barra', 'barra-fixa', 'remada-curvada', 'hack', 'bulgaro', 'triceps-testa', 'roda-abdominal', 'stiff']);

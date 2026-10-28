@@ -83,12 +83,13 @@ function exerciseCard(e, i, all) {
   return `<article class="ex-card ${group ? 'grouped' : ''}" data-ex="${e.id}">
     ${group ? `<div class="group-tag">${icon('swap', 13)} ${groupName(group.length).toUpperCase()} · ${group.indexOf(e) + 1}/${group.length}${group.indexOf(e) < group.length - 1 ? ' · sem descanso, vá para o próximo' : ' · descanse no fim da rodada'}</div>` : ''}
     <div class="ex-head">
-      ${ex.img ? `<img class="ex-thumb" src="${imgUrl(ex.img, 0)}" alt="" loading="lazy" data-act="exHistory" ${IMG_ERR}>` : ''}
+      ${ex.photo ? `<img class="ex-thumb" src="${ex.photo}" alt="" data-act="exHistory">` : ex.img ? `<img class="ex-thumb" src="${imgUrl(ex.img, 0)}" alt="" loading="lazy" data-act="exHistory" ${IMG_ERR}>` : ''}
       <button class="ex-title" data-act="exHistory"><b>${esc(ex.name)}</b><small>${esc(MUSCLES[ex.muscle] || '')} · ver como fazer</small></button>
       <button class="icon-btn" data-act="exMenu" aria-label="Opções do exercício">${icon('more')}</button>
     </div>
     ${e.coach ? `<p class="coach c-${e.coach.tone}">${icon(COACH_ICON[e.coach.tone], 15)}<span><b>Treinador:</b> ${esc(e.coach.msg)}</span></p>` : ''}
     ${techs.map(k => `<p class="tech"><b>${esc(TECHNIQUES[k].label)}:</b> ${esc(TECHNIQUES[k].desc)}</p>`).join('')}
+    ${!e.tip && ex.tip ? `<p class="tip">${icon('bulb', 15)}<span>${esc(ex.tip)}</span></p>` : ''}
     ${e.tip ? `<p class="tip">${icon('bulb', 15)}<span>${esc(e.tip)}</span></p>` : ''}
     <input class="note" data-f="note" placeholder="${ex.type === 'cardio' ? 'Observação (percurso, como se sentiu...)' : 'Observação (ajuste do banco, pegada...)'}" value="${esc(e.notes)}" maxlength="140">
     ${ex.type !== 'cardio' ? `<button class="rest-chip" data-act="exRest">${icon('timer', 15)} Descanso: ${fmtRest(e.rest)}</button>` : ''}

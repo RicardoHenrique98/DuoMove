@@ -60,6 +60,8 @@ export function sheet(html, handlers = {}, { full = false, onClose } = {}) {
     handlers[t.dataset.act]?.(t, api, ev);
   });
   if (handlers.input) back.addEventListener('input', ev => handlers.input(ev.target, api, ev));
+  // Safari dispara só 'change' em campos de arquivo
+  if (handlers.input) back.addEventListener('change', ev => { if (ev.target.type === 'file') handlers.input(ev.target, api, ev); });
   document.body.append(back);
   return api;
 }
