@@ -3,6 +3,7 @@ import { allExercises, addCustomExercise } from '../store.js';
 import { MUSCLES, EQUIP, TYPES, imgUrl, IMG_ERR } from '../data.js';
 import { esc, norm } from '../util.js';
 import { sheet, icon, toast } from '../ui.js';
+import { alternatives } from '../planner.js';
 
 // Busca por todas as palavras (em qualquer ordem); exercícios curados aparecem primeiro
 export function filterExercises(q, muscle) {
@@ -78,4 +79,24 @@ export function openCreate(name = '', muscle = null, onCreated) {
       onCreated?.(ex);
     }
   });
+}
+
+// Troca sugerida pelo treinador: substitutos já ordenados; a biblioteca fica como última opção
+export function openSwap({ exId, exclude = [], onPick }) {
+  const ex = allExercises().find(e => e.id === exId) || { name: 'exercício', muscle: null };
+  const alts = alternatives(exId, { exclude });
+  const s = sheet(`<div class="sheet-head"><h3 class="sheet-title">Trocar ${esc(ex.name)}</h3><button class="icon-btn" data-act="close" aria-label="Fechar">${icon('x')}</button></div>
+    <p class="muted small">O treinador escolheu os melhores substitutos para manter o estímulo do treino.</p>
+    <div class="swap-list">${alts.map((a, i) => {
+      const x = allExercises().find(e => e.id === a.id);
+      return `<button class="swap-opt ${i === 0 ? 'best' : ''}" data-act="pick" data-id="${a.id}">
+        ${i === 0 ? `<span class="swap-badge">${icon('bulb', 13)} Recomendado pelo treinador</span>` : ''}
+        ${exerciseRow(x).replace(/^<button class="ex-row"\s*>/, '<span class="ex-row">').replace(/<\/button>$/, '</span>')}
+        <small class="swap-why">${esc(a.why)}</small></button>`;
+    }).join('') || '<div class="empty small">Sem substitutos com o seu equipamento. Escolha na biblioteca.</div>'}</div>
+    <button class="btn ghost block" data-act="library">${icon('search', 16)} Escolher outro na biblioteca</button>`, {
+    pick: (el, api) => { api.close(); onPick(el.dataset.id); },
+    library: (el, api) => { api.close(); openPicker({ title: `Trocar ${ex.name}`, multi: false, muscle: ex.muscle, onDone: ([id]) => onPick(id) }); }
+  });
+  return s;
 }

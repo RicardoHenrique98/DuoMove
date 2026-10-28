@@ -6,7 +6,8 @@ import { icon, menu, confirmBox, toast, sheet, unlockAudio, beep } from '../ui.j
 import { go } from '../router.js';
 import { newSet, addExercisesToActive, discardActive, finishActive, updateRoutineFrom, routineFromWorkout } from '../workout.js';
 import { workoutVolume, workoutKm, newRecords } from '../stats.js';
-import { openPicker } from './picker.js';
+import { openPicker, openSwap } from './picker.js';
+import { suggest } from '../coach.js';
 import { FEEDBACK, PHASES, afterPlanWorkout } from '../planner.js';
 import { SET_TYPES, TECHNIQUES, applyTechnique, restAfter, isMain, groupName } from '../techniques.js';
 
@@ -263,10 +264,9 @@ export const actions = {
       ...(i < w.exercises.length - 1 ? [{ label: 'Mover para baixo', value: 'down', icon: 'down' }] : []),
       { label: 'Remover exercício', value: 'del', icon: 'trash', danger: true }
     ]);
-    if (v === 'swap') return openPicker({ title: `Trocar ${ex.name}`, multi: false, muscle: ex.muscle, onDone: ([id]) => {
-      e.exId = id; e.coach = null;
-      e.sets.forEach(s => { s.t = {}; if (getEx(id).type !== ex.type) { s.kg = s.reps = s.sec = s.km = s.min = null; s.done = false; } });
-      save(); rerender(); toast('Exercício trocado');
+    if (v === 'swap') return openSwap({ exId: e.exId, exclude: w.exercises.map(x => x.exId), onPick: id => {
+      swapExercise(e, id);
+      save(); rerender(); toast(`Trocado por ${getEx(id).name}`);
     } });
     if (v === 'hist') return go('/exercicio/' + e.exId);
     if (v === 'tech') return pickTechnique(e, rerender);
@@ -310,6 +310,22 @@ export const actions = {
     showSummary(saved);
   }
 };
+
+// Troca o exercício mantendo séries, faixas e técnicas; o treinador recalcula a carga
+function swapExercise(e, id) {
+  const oldType = getEx(e.exId).type, type = getEx(id).type, w = a();
+  e.exId = id;
+  const pending = e.sets.filter(s => !s.done);
+  for (const s of e.sets) {
+    const keep = { reps: s.t?.reps, rmax: s.t?.rmax, sec: s.t?.sec, min: s.t?.min };
+    s.t = Object.fromEntries(Object.entries(keep).filter(([, v]) => v != null));
+    if (type !== oldType) { s.kg = s.reps = s.sec = s.km = s.min = null; s.done = false; }
+  }
+  const phase = w.plan?.phase;
+  const c = suggest(id, pending.map(s => ({ type: s.type, ...s.t })), { rir: phase ? PHASES[phase]?.rir : undefined, deload: phase === 'deload' });
+  e.coach = c ? { tone: c.tone, msg: c.msg } : null;
+  pending.forEach((s, i) => { if (c?.sets[i]) { Object.assign(s.t, c.sets[i]); s.t.coach = true; } });
+}
 
 export async function chooseTechnique() {
   return menu('Técnicas avançadas', [

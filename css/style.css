@@ -365,3 +365,11 @@ body.no-tabs .tabbar { display: none; }
 .card.today::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 5px; background: var(--duo); }
 .done-hero .ic { color: var(--love); }
 .streak .ic { color: var(--love); }
+
+/* Troca sugerida */
+.swap-list { display: flex; flex-direction: column; gap: 8px; }
+.swap-opt { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 6px 10px 10px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.swap-opt .ex-row { border: 0; padding: 6px 0; }
+.swap-opt.best { border-color: var(--accent); background: var(--accent-soft); }
+.swap-badge { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 4px; font-size: 11px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--accent-text); }
+.swap-why { color: var(--muted); font-size: 12.5px; padding-left: 56px; }

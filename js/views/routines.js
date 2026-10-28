@@ -4,7 +4,7 @@ import { esc, uid, num, fmtNum, fmtRest, plural } from '../util.js';
 import { icon, menu, confirmBox, toast, sheet } from '../ui.js';
 import { go, back } from '../router.js';
 import { startFromRoutine, startFromExercises } from '../workout.js';
-import { openPicker } from './picker.js';
+import { openPicker, openSwap } from './picker.js';
 import { todayActions } from './plan.js';
 import { COLS, chooseTechnique, linkWithNext, unlink, techList } from './live.js';
 import { applyTechnique, isMain, SET_TYPES, TECHNIQUES, groupName } from '../techniques.js';
@@ -180,7 +180,7 @@ export const editor = {
         const r = await menu('Descanso', [0, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300].map(x => ({ label: fmtRest(x), value: String(x) })));
         if (r != null) e.rest = +r;
       }
-      if (v === 'swap') return openPicker({ multi: false, muscle: getEx(e.exId).muscle, title: 'Trocar exercício', onDone: ([id]) => { e.exId = id; rerender(); } });
+      if (v === 'swap') return openSwap({ exId: e.exId, exclude: draft.exercises.map(x => x.exId), onPick: id => { e.exId = id; rerender(); } });
       if (v === 'tech') {
         const key = await chooseTechnique();
         if (!key) return;

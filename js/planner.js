@@ -1,7 +1,8 @@
 // Plano do treinador: monta o próximo treino sozinho a partir do perfil e dos registros.
 // Fases: readaptação → hipertrofia → intensificação → descarga → (força) → novo ciclo com exercícios trocados.
 // A fase avança por sessões concluídas (não por calendário) e reage a pausas, cansaço e ao feedback de cada treino.
-import { state, save, getEx } from './store.js';
+import { state, save, getEx, allExercises } from './store.js';
+import { EXERCISES } from './data.js';
 import { DAY, uid, startOfWeek } from './util.js';
 import { initCardio, cardioSession, afterCardio } from './cardio.js';
 
@@ -81,7 +82,7 @@ const POOLS = {
   triceps: ['triceps-polia', 'triceps-corda', 'triceps-frances', 'triceps-testa', 'mergulho-banco'],
   quad: ['cadeira-extensora', 'step-up', 'agachamento-corpo', 'afundo-corpo'],
   ham: ['mesa-flexora', 'cadeira-flexora', 'terra-romeno', 'ponte-gluteo'],
-  glute: ['elevacao-quadril', 'abdutora', 'coice-polia', 'ponte-gluteo'],
+  glute: ['elevacao-quadril', 'abdutora', 'coice-polia', 'ponte-gluteo', 'x-barbell-glute-bridge', 'x-smith-machine-hip-raise'],
   calves: ['panturrilha-pe', 'panturrilha-sentado', 'panturrilha-leg', 'panturrilha-halter', 'panturrilha-corpo'],
   core: ['prancha', 'dead-bug', 'abdominal-polia', 'elevacao-pernas', 'roda-abdominal', 'abdominal']
 };
@@ -495,4 +496,37 @@ function strengthSession() {
   if (plan.volAdj < 0) reasons.push('Último treino foi exaustivo: 1 série a menos nos complementares.');
 
   return { kind: 'forca', key, name: tpl.name, phase: plan.phase, status: st, split: SPLIT_NAME[p.days] || 'Full-body', exercises, reasons };
+}
+
+/* ---------- Troca inteligente de exercício ---------- */
+
+const allExercisesCurated = () => [...EXERCISES, ...state.custom];
+
+const EQUIP_LABEL = { barra: 'barra', halter: 'halteres', maquina: 'máquina', polia: 'polia', corporal: 'peso do corpo', elastico: 'elástico', kettlebell: 'kettlebell' };
+
+// Substitutos ordenados pelo treinador: mesmo movimento, outro equipamento, já conhecidos por você
+export function alternatives(exId, { exclude = [], limit = 4 } = {}) {
+  const p = state.profile, ex = getEx(exId), skip = new Set([exId, ...exclude]);
+  const pats = Object.keys(POOLS).filter(k => POOLS[k].includes(exId));
+  const samePattern = new Set(pats.flatMap(k => POOLS[k]));
+  const freq = {};
+  for (const w of state.workouts) for (const e of w.exercises) freq[e.exId] = (freq[e.exId] || 0) + 1;
+  // Candidatos: mesmo padrão de movimento + mesmo músculo (curados e, por último, a biblioteca ampliada)
+  const pool = new Set([...samePattern]);
+  const curated = new Set(allExercisesCurated().map(e => e.id));
+  for (const e of allExercises()) if (e.muscle === ex.muscle && (e.type === ex.type || (e.type === 'corpo' && ex.type === 'peso'))) pool.add(e.id);
+  const gentle = state.plan?.phase === 'readapt' || (p.level === 'iniciante' && !(state.plan?.blocks));
+  return [...pool].filter(id => !skip.has(id) && allowed(id, p)).map(id => {
+    const x = getEx(id);
+    let score = 0;
+    const why = [];
+    if (samePattern.has(id)) { score += 4; why.push('mesmo movimento'); } else why.push(`também trabalha ${x.muscle === ex.muscle ? 'o mesmo músculo' : 'a região'}`);
+    if (x.equip !== ex.equip) { score += 2; why.push(`usa ${EQUIP_LABEL[x.equip] || x.equip} em vez de ${EQUIP_LABEL[ex.equip] || ex.equip}`); }
+    if (freq[id]) { score += 2 + Math.min(2, freq[id] / 3); why.push('você já fez, a carga vem do seu histórico'); }
+    if (gentle && DEMANDING.has(id)) score -= 3;
+    if ((p.place === 'academia' || !p.place) && (HOME_ONLY.has(id) || x.equip === 'corporal' && ex.equip !== 'corporal')) score -= 5;
+    if (x.type !== ex.type) score -= 3;
+    if (!curated.has(id)) score -= 1.5;
+    return { id, score, why: why.join(' · ') };
+  }).sort((a, b) => b.score - a.score).slice(0, limit);
 }
