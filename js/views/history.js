@@ -9,6 +9,7 @@ import { workoutCard } from './home.js';
 import { openActivityLog } from './activity.js';
 import { fmtSet, setTag } from './live.js';
 import { isMain } from '../techniques.js';
+import { bodyMap } from '../bodymap.js';
 
 export function render() {
   const list = sortedWorkouts();
@@ -43,6 +44,7 @@ export const detail = {
       <div class="summary-grid"><div><small>Duração</small><b>${fmtDuration((w.end || w.start) - w.start)}</b></div>
         ${km ? `<div><small>Distância</small><b>${fmtNum(km, 2)} km</b></div>` : `<div><small>Volume</small><b>${fmtKg(workoutVolume(w))}</b></div>`}
         <div><small>Séries</small><b>${workoutSets(w)}</b></div></div>
+      ${bodyMap(w.exercises)}
       ${recs.length ? `<div class="records">${recs.map(x => `<div class="rec-line">${icon('trophy', 14)}<b>${esc(x.ex.name)}</b><span>${esc(x.label)}</span></div>`).join('')}</div>` : ''}
       ${w.exercises.map(e => {
         const ex = getEx(e.exId); let n = 0;

@@ -1,7 +1,7 @@
 import { state, save } from './store.js';
 import { applyTheme } from './theme.js';
 import { route, onRender, rerender, go } from './router.js';
-import { icon, beep, toast } from './ui.js';
+import { icon, beep, countdownTick, toast, unlockAudio } from './ui.js';
 import { esc, fmtClock } from './util.js';
 import * as home from './views/home.js';
 import * as routines from './views/routines.js';
@@ -110,11 +110,13 @@ setInterval(() => {
     const left = a.restEnd - Date.now();
     if (left <= 0) {
       a.restEnd = null; save();
-      if (state.profile.sound) beep();
+      // Voltou do segundo plano bem depois do fim: não bipa atrasado
+      if (state.profile.sound && left > -3000) beep();
       toast('Descanso finalizado. Bora para a próxima série!');
       paintRest(); paintMini();
       live.onRestEnd(redraw);
     } else {
+      if (state.profile.sound) countdownTick(left, a.restEnd);
       document.querySelectorAll('[data-rest]').forEach(n => { n.textContent = fmtClock(left); });
       const fill = document.querySelector('.rest-fill');
       if (fill) fill.style.width = `${Math.min(100, (left / (a.restTotal * 1000)) * 100)}%`;
@@ -123,7 +125,9 @@ setInterval(() => {
 }, 1000);
 
 window.addEventListener('hashchange', () => rerender({ keepScroll: false }));
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (state.active) rerender(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else { unlockAudio(); if (state.active) rerender(); } });
+// O iPhone só libera o som depois de um toque; qualquer toque serve
+document.addEventListener('pointerdown', unlockAudio);
 
 // Abre direto no treino em andamento se o app foi fechado no meio dele
 if (state.active && !state.active.editing && (!location.hash || location.hash === '#/inicio')) location.replace('#/treino');

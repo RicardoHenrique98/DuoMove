@@ -87,22 +87,31 @@ export function confirmBox(title, text, okLabel = 'Confirmar', danger = false) {
   });
 }
 
-// Bipe curto ao fim do descanso (o AudioContext é liberado no primeiro toque)
-let audio;
+// Bipes do descanso (o AudioContext é liberado no primeiro toque). Web Audio toca junto
+// com a música de outros apps, mas o iPhone o pausa com o app em segundo plano.
+let audio, lastTick;
 export function unlockAudio() {
   try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); } catch { /* sem áudio */ }
 }
+function tone(freq, delay, len, vol = 0.3) {
+  const t = audio.currentTime + delay, o = audio.createOscillator(), g = audio.createGain();
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(g).connect(audio.destination);
+  o.start(t); o.stop(t + len + 0.02);
+}
+// Fim: dois bipes agudos e um longo
 export function beep() {
   if (!audio) return;
-  const t = audio.currentTime;
-  [0, 0.25].forEach(d => {
-    const o = audio.createOscillator(), g = audio.createGain();
-    o.frequency.value = 880;
-    g.gain.setValueAtTime(0.0001, t + d);
-    g.gain.exponentialRampToValueAtTime(0.3, t + d + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18);
-    o.connect(g).connect(audio.destination);
-    o.start(t + d); o.stop(t + d + 0.2);
-  });
+  tone(880, 0, 0.18); tone(880, 0.25, 0.18); tone(1175, 0.5, 0.45);
   navigator.vibrate?.([200, 100, 200]);
+}
+// Contagem 3, 2, 1: um bipe curto por segundo; key evita repetir no mesmo segundo
+export function countdownTick(left, key) {
+  const k = Math.ceil(left / 1000);
+  if (!audio || k < 1 || k > 3 || lastTick === key + ':' + k) return;
+  lastTick = key + ':' + k;
+  tone(660, 0, 0.12, 0.25);
 }

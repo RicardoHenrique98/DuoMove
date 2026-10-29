@@ -2,7 +2,7 @@
 import { state, save, getEx, previousSets } from '../store.js';
 import { MUSCLES, imgUrl, IMG_ERR } from '../data.js';
 import { esc, num, fmtNum, fmtKg, fmtClock, fmtRest, fmtDuration, plural } from '../util.js';
-import { icon, menu, confirmBox, toast, sheet, unlockAudio, beep } from '../ui.js';
+import { icon, menu, confirmBox, toast, sheet, unlockAudio, beep, countdownTick } from '../ui.js';
 import { go } from '../router.js';
 import { newSet, addExercisesToActive, discardActive, finishActive, updateRoutineFrom, routineFromWorkout } from '../workout.js';
 import { workoutVolume, workoutKm, newRecords } from '../stats.js';
@@ -10,6 +10,7 @@ import { openPicker, openSwap } from './picker.js';
 import { suggest } from '../coach.js';
 import { FEEDBACK, PHASES, afterPlanWorkout } from '../planner.js';
 import { SET_TYPES, TECHNIQUES, applyTechnique, restAfter, isMain, groupName } from '../techniques.js';
+import { bodyMap } from '../bodymap.js';
 
 export const COLS = {
   peso: [['kg', 'KG'], ['reps', 'REPS']],
@@ -49,6 +50,21 @@ function prevAt(e, s, prev = prevFor(e)) {
   return same[e.sets.filter(x => cat(x) === cat(s)).indexOf(s)];
 }
 
+// Cronômetro das séries de tempo/cardio: regressivo com o tempo digitado, a meta ou o da última vez;
+// sem nenhum deles, conta para cima até a pessoa parar
+const UNIT = { tempo: ['sec', 1000], cardio: ['min', 60000] };
+function runMs(s, type, pv) {
+  const [f, ms] = UNIT[type], v = s[f] ?? s.t?.[f] ?? pv?.[f];
+  return v ? v * ms : 0;
+}
+const setTime = (s, type, ms) => { s[UNIT[type][0]] = type === 'tempo' ? Math.round(ms / 1000) : Math.round(ms / 6000) / 10; };
+// Para o cronômetro e grava o tempo feito até agora
+function stopRun(s, type) {
+  if (s.runEnd) setTime(s, type, s.runMs - Math.max(0, s.runEnd - Date.now()));
+  else if (s.runStart) setTime(s, type, Date.now() - s.runStart);
+  s.runEnd = s.runStart = null;
+}
+
 let saveTimer;
 const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); };
 
@@ -72,8 +88,10 @@ function exerciseCard(e, i, all) {
     const ph = f => f === 'reps' && s.t?.rmax && !s.t.coach ? `${s.t.reps}–${s.t.rmax}` : fmtNum(s.t?.[f] ?? pv?.[f] ?? '', 2);
     return `<div class="set-row c${cols.length} ${s.done ? 'done' : ''}" data-set="${s.id}">
       <button class="set-tag t-${s.type}" data-act="setMenu" aria-label="Tipo da série">${setTag(s, n)}</button>
-      ${ex.type === 'cardio' && !s.done && (s.t?.min || s.runEnd)
-        ? `<button class="prev timer ${s.runEnd ? 'on' : ''}" data-act="runSet">${s.runEnd ? `${icon('x', 13)} <span data-run="${s.id}">${fmtClock(s.runEnd - Date.now())}</span>` : `${icon('play', 13)} ${fmtClock(s.t.min * 60000)}`}</button>`
+      ${UNIT[ex.type] && !s.done && !a().editing
+        ? `<button class="prev timer ${s.runEnd || s.runStart ? 'on' : ''}" data-act="runSet" aria-label="${s.runEnd || s.runStart ? 'Parar cronômetro' : 'Iniciar cronômetro'}">${s.runEnd || s.runStart
+          ? `${icon('x', 13)} <span data-run="${s.id}">${fmtClock(s.runEnd ? s.runEnd - Date.now() : Date.now() - s.runStart)}</span>`
+          : `${icon('play', 13)} ${fmtClock(runMs(s, ex.type, pv))}`}</button>`
         : `<button class="prev" data-act="copyPrev" ${pv ? '' : 'disabled'}>${esc(fmtSet(pv, ex.type))}</button>`}
       ${cols.map(([f, label]) => `<input data-f="${f}" inputmode="${f === 'reps' || f === 'sec' ? 'numeric' : 'decimal'}" enterkeyhint="next" autocomplete="off" aria-label="${label} série ${i + 1}" placeholder="${esc(ph(f))}" value="${s[f] != null ? esc(fmtNum(s[f], 2)) : ''}">`).join('')}
       <button class="check" data-act="check" aria-label="Concluir série" aria-pressed="${s.done}">${icon('check', 18)}</button>
@@ -120,14 +138,20 @@ export function tickRuns(rerender) {
   const w = a();
   if (!w) return;
   for (const e of w.exercises) for (const s of e.sets) {
+    if (s.runStart) { const n = document.querySelector(`[data-run="${s.id}"]`); if (n) n.textContent = fmtClock(Date.now() - s.runStart); continue; }
     if (!s.runEnd) continue;
-    const left = s.runEnd - Date.now();
-    if (left > 0) { const n = document.querySelector(`[data-run="${s.id}"]`); if (n) n.textContent = fmtClock(left); continue; }
-    s.runEnd = null; s.min ??= s.t.min; s.done = true;
+    const left = s.runEnd - Date.now(), type = getEx(e.exId).type;
+    if (left > 0) {
+      if (state.profile.sound) countdownTick(left, s.runEnd);
+      const n = document.querySelector(`[data-run="${s.id}"]`); if (n) n.textContent = fmtClock(left);
+      continue;
+    }
+    if (s[UNIT[type][0]] == null) setTime(s, type, s.runMs ?? s.t.min * 60000);
+    s.runEnd = null; s.done = true;
     const r = restAfter(w.exercises, e, s, e.rest);
     if (r.rest) startRest(r.rest); else w.restEnd = null;
     if (state.profile.sound) beep();
-    toast(r.rest ? `Intervalo concluído. Recupere por ${fmtRest(r.rest)}.` : 'Intervalo concluído!');
+    toast(r.rest ? `Tempo concluído. Recupere por ${fmtRest(r.rest)}.` : 'Tempo concluído!');
     save(); rerender();
   }
 }
@@ -140,7 +164,8 @@ export function onRestEnd(rerender) {
     if (getEx(e.exId).type !== 'cardio' || e.sets.length < 2) continue;
     const i = e.sets.findIndex(s => !s.done);
     if (i > 0 && e.sets[i - 1].done && e.sets[i].t?.min && !e.sets[i].runEnd) {
-      e.sets[i].runEnd = Date.now() + e.sets[i].t.min * 60000;
+      e.sets[i].runMs = e.sets[i].t.min * 60000;
+      e.sets[i].runEnd = Date.now() + e.sets[i].runMs;
       toast('Próximo intervalo: vai!');
       save(); rerender();
       return;
@@ -187,6 +212,7 @@ export const actions = {
     unlockAudio();
     const e = findEx(el), s = findSet(el, e), ex = getEx(e.exId);
     if (!s.done) {
+      if (UNIT[ex.type]) stopRun(s, ex.type);
       const prev = prevAt(e, s);
       for (const [f] of COLS[ex.type]) s[f] ??= s.t?.[f] ?? prev?.[f] ?? null;
       if (REQUIRED[ex.type].some(f => s[f] == null)) {
@@ -208,12 +234,16 @@ export const actions = {
     rerender();
   },
 
-  // Cronômetro de intervalo para séries de cardio (toque de novo para parar)
+  // Cronômetro da série de tempo ou cardio (toque de novo para parar e gravar o tempo feito)
   runSet(el, rerender) {
     unlockAudio();
-    const e = findEx(el), s = findSet(el, e);
-    if (s.runEnd) { s.min = Math.round((s.t.min * 60000 - Math.max(0, s.runEnd - Date.now())) / 6000) / 10; s.runEnd = null; }
-    else { s.runEnd = Date.now() + s.t.min * 60000; a().restEnd = null; }
+    const e = findEx(el), s = findSet(el, e), type = getEx(e.exId).type;
+    if (s.runEnd || s.runStart) stopRun(s, type);
+    else {
+      const ms = runMs(s, type, prevAt(e, s));
+      if (ms) { s.runMs = ms; s.runEnd = Date.now() + ms; } else s.runStart = Date.now();
+      a().restEnd = null;
+    }
     save(); rerender();
   },
 
@@ -371,6 +401,7 @@ function showSummary(w) {
       <div class="fb-grid">${FEEDBACK.map(([v, l, d]) => `<button class="fb" data-act="fb" data-v="${v}"><b>${l}</b><small>${d}</small></button>`).join('')}</div></div>` : '';
   sheet(`<div class="done-hero">${icon('trophy', 36)}<h3>Treino concluído!</h3><p class="muted">${state.workouts.length}º treino registrado no Duo Move.</p></div>
     <div class="summary-grid"><div><small>Duração</small><b>${fmtDuration(w.end - w.start)}</b></div><div><small>Volume</small><b>${fmtKg(workoutVolume(w))}</b></div><div><small>Séries</small><b>${sets}</b></div></div>
+    ${bodyMap(w.exercises)}
     ${recs.length ? `<div class="records"><h4>${icon('trophy', 16)} ${plural(recs.length, 'recorde pessoal', 'recordes pessoais')}</h4>${recs.map(x => `<div class="rec-line"><b>${esc(x.ex.name)}</b><span>${esc(x.label)}</span></div>`).join('')}</div>` : ''}
     ${planBlock}
     ${w.plan ? '' : r ? `<button class="btn soft block" data-act="updRoutine">Atualizar a rotina "${esc(r.name)}" com estes valores</button>`

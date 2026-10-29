@@ -263,6 +263,10 @@ body.no-tabs .tabbar { display: none; }
 
 /* Resumo e detalhes */
 .done-hero { text-align: center; color: var(--accent-text); display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px; }
+.bodymap { padding: 12px; }
+.bodymap svg { display: block; width: 100%; max-width: 320px; margin: 0 auto 6px; }
+.bodymap g > * { stroke: var(--panel); stroke-width: .8; }
+.bm-skin { fill: var(--panel2); } .bm-off { fill: var(--panel3); } .bm-on { fill: var(--accent-text); }
 .done-hero h3 { color: var(--text); margin: 4px 0 0; font-size: 22px; }
 .records { background: var(--gold-bg); border: 1px solid var(--gold-line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .records h4 { margin: 0 0 2px; color: var(--gold); display: flex; gap: 6px; align-items: center; font-size: 14px; }
