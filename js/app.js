@@ -114,7 +114,7 @@ setInterval(() => {
       // Voltou do segundo plano bem depois do fim: não bipa atrasado
       if (state.profile.sound && left > -3000) beep();
       paintRest(); paintMini();
-      if (!live.onRestEnd(redraw)) { toast('Descanso finalizado. Bora para a próxima série!'); if (left > -3000) say('Descanso terminado. Bora para a próxima série!'); }
+      if (!live.onRestEnd(redraw)) { toast('Descanso finalizado. Bora para a próxima série!'); if (left > -3000) say(`Descanso terminado. ${live.nextSetLine()}`); }
     } else {
       if (state.profile.sound) countdownTick(left, a.restEnd);
       document.querySelectorAll('[data-rest]').forEach(n => { n.textContent = fmtClock(left); });

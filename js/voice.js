@@ -1,5 +1,6 @@
 // Voz do treinador: fala em português (voz do próprio aparelho) para guiar o cardio
 import { state } from './store.js';
+import { duckFor } from './ui.js';
 
 let voice = null;
 const synth = globalThis.speechSynthesis;
@@ -29,6 +30,9 @@ export function say(text, { interrupt = true } = {}) {
   u.lang = 'pt-BR';
   if (voice) u.voice = voice;
   u.rate = 1.02;
+  // Música abaixa durante a fala (tempo estimado pelo tamanho da frase) e volta depois
+  duckFor(1500 + text.length * 70);
+  u.onend = () => duckFor(400);
   synth.speak(u);
 }
 

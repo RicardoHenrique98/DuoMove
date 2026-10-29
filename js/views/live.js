@@ -134,6 +134,28 @@ export function render() {
     <button class="btn danger-ghost block" data-act="discard">${w.editing ? 'Cancelar edição' : 'Descartar treino'}</button>`;
 }
 
+// ---- Voz do treinador: comandos do treino ----
+// "Supino reto, série 2 de 4: 8 a 10 repetições com 40 quilos"
+export function nextSetLine(w = a()) {
+  if (!w) return '';
+  const order = [...w.exercises];
+  const first = order.find(x => x.id === w.restFor);
+  const list = first ? [first, ...order.filter(x => x !== first)] : order;
+  for (const e of list) {
+    const i = e.sets.findIndex(s => !s.done);
+    if (i < 0) continue;
+    const s = e.sets[i], ex = getEx(e.exId), t = s.t || {}, main = e.sets.filter(isMain), k = main.indexOf(s);
+    const name = ex.name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+    const pos = s.type === 'w' ? 'aquecimento' : SET_TYPES[s.type]?.tag ? SET_TYPES[s.type].label.toLowerCase() : `série ${k + 1} de ${main.length}`;
+    let what = '';
+    if (ex.type === 'tempo' && (s.sec ?? t.sec)) what = sayDuration((s.sec ?? t.sec) / 60);
+    else if (ex.type === 'cardio' && t.min) what = sayDuration(t.min);
+    else if (t.reps) what = `${t.rmax && !t.coach ? `${t.reps} a ${t.rmax}` : t.reps} repetições${t.kg ? ` com ${String(t.kg).replace('.', ',')} quilos` : ''}`;
+    return `${name}, ${pos}${what ? ': ' + what : ''}.`;
+  }
+  return 'Era a última série. Toque em finalizar quando terminar.';
+}
+
 // ---- Guia por voz do cardio ----
 const isCardio = e => getEx(e.exId).type === 'cardio';
 const cardioOnly = w => w.exercises.length && w.exercises.every(isCardio);
@@ -182,6 +204,7 @@ export function tickRuns(rerender) {
     const ex = w.exercises.find(x => x.id === w.restFor);
     const nx = ex && nextRun(w, ex);
     if (nx) { w.restWarned = true; say(`Faltam 10 segundos. Prepare-se: ${actionVerb(nx.e.exId).toLowerCase()} de novo.`); }
+    else if (w.restTotal >= 30 && w.exercises.some(x => x.sets.some(y => !y.done))) { w.restWarned = true; say(`Faltam 10 segundos. Próximo: ${nextSetLine(w)}`); }
   }
   for (const e of w.exercises) for (const s of e.sets) {
     if (s.runStart) { const n = document.querySelector(`[data-run="${s.id}"]`); if (n) n.textContent = fmtClock(Date.now() - s.runStart); continue; }
@@ -201,7 +224,8 @@ export function tickRuns(rerender) {
     const r = restAfter(w.exercises, e, s, e.rest);
     if (state.profile.sound) beep();
     if (type !== 'cardio') {
-      if (r.rest) startRest(r.rest); else w.restEnd = null;
+      if (r.rest) { startRest(r.rest); w.restFor = e.id; } else w.restEnd = null;
+      say(r.next ? `Tempo! Sem descanso. Agora: ${nextSetLine({ ...w, restFor: r.next.id })}` : r.rest ? `Tempo! Descanse ${sayDuration(r.rest / 60)}.` : 'Tempo!');
       toast(r.rest ? `Tempo concluído. Recupere por ${fmtRest(r.rest)}.` : 'Tempo concluído!');
       save(); rerender();
       continue;
@@ -287,8 +311,10 @@ export const actions = {
       }
       s.done = true;
       const r = restAfter(a().exercises, e, s, e.rest);
-      if (r.rest) startRest(r.rest); else a().restEnd = null;
+      if (r.rest) { startRest(r.rest); a().restFor = e.id; } else a().restEnd = null;
       save(); rerender();
+      if (r.next) say(`Sem descanso. Agora: ${nextSetLine({ ...a(), restFor: r.next.id })}`);
+      else if (r.rest) say(e.sets.some(x => !x.done) || a().exercises.some(x => x.sets.some(y => !y.done)) ? `Boa! Descanse ${sayDuration(r.rest / 60)}.` : 'Boa! Treino completo. Toque em finalizar.');
       if (r.next) {
         toast(`Sem descanso: agora ${getEx(r.next.exId).name}`);
         document.querySelector(`[data-ex="${r.next.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -308,8 +334,8 @@ export const actions = {
       unlockVoice();
       const ms = runMs(s, type, prevAt(e, s));
       if (ms && type === 'cardio') startRun(a(), e, s, '', ms);
-      else if (ms) { s.runMs = ms; s.runEnd = Date.now() + ms; a().restEnd = null; }
-      else { s.runStart = Date.now(); a().restEnd = null; }
+      else if (ms) { s.runMs = ms; s.runEnd = Date.now() + ms; a().restEnd = null; say(`Vai! ${sayDuration(ms / 60000)}.`); }
+      else { s.runStart = Date.now(); a().restEnd = null; say('Vai! Cronômetro rodando.'); }
     }
     save(); rerender();
   },

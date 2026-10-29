@@ -89,7 +89,16 @@ export function confirmBox(title, text, okLabel = 'Confirmar', danger = false) {
 
 // Bipes do descanso (o AudioContext é liberado no primeiro toque). Web Audio toca junto
 // com a música de outros apps, mas o iPhone o pausa com o app em segundo plano.
-let audio, lastTick;
+let audio, lastTick, restoreTimer;
+// Antes de qualquer aviso, pede ao iPhone para só abaixar a música de outros apps (sem pausar);
+// depois o volume volta ao normal. Safari 17+ (navigator.audioSession); nos demais, ignora.
+export function duckFor(ms) {
+  const as = navigator.audioSession;
+  if (!as) return;
+  try { as.type = 'transient'; } catch { return; }
+  clearTimeout(restoreTimer);
+  restoreTimer = setTimeout(() => { try { as.type = 'auto'; } catch { /* sem suporte */ } }, ms);
+}
 export function unlockAudio() {
   try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); } catch { /* sem áudio */ }
 }
@@ -105,6 +114,7 @@ function tone(freq, delay, len, vol = 0.3) {
 // Fim: dois bipes agudos e um longo
 export function beep() {
   if (!audio) return;
+  duckFor(1500);
   tone(880, 0, 0.18); tone(880, 0.25, 0.18); tone(1175, 0.5, 0.45);
   navigator.vibrate?.([200, 100, 200]);
 }
@@ -113,5 +123,6 @@ export function countdownTick(left, key) {
   const k = Math.ceil(left / 1000);
   if (!audio || k < 1 || k > 3 || lastTick === key + ':' + k) return;
   lastTick = key + ':' + k;
+  duckFor(1500);
   tone(660, 0, 0.12, 0.25);
 }
