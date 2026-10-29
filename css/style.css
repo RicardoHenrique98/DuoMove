@@ -258,7 +258,7 @@ body.no-tabs .tabbar { display: none; }
 .card .field + .field, .card .field + .setting { margin-top: 12px; }
 .setting { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 2px; border-top: 1px solid var(--line); margin-top: 14px; }
 .setting b { color: var(--accent-text); }
-.setting input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
+.setting input[type="checkbox"] { flex: none; width: 22px; height: 22px; accent-color: var(--accent); }
 .card .row.gap { margin-top: 12px; }
 
 /* Resumo e detalhes */
@@ -388,3 +388,5 @@ body.no-tabs .tabbar { display: none; }
 .photo-box img { width: 100%; height: 100%; object-fit: cover; }
 .demo.photo { background: var(--panel2); }
 .demo.photo img { object-fit: cover; }
+.voice-opts { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
+.voice-opts .btn { margin-bottom: 4px; }

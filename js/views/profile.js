@@ -4,6 +4,7 @@ import { icon, menu, confirmBox, toast } from '../ui.js';
 import { rerender } from '../router.js';
 import { applyTheme } from '../theme.js';
 import { SEXES, FOCUS } from '../planner.js';
+import { preview, ptVoices, refreshVoice } from '../voice.js';
 
 const GOALS = ['Ganhar força', 'Ganhar massa muscular', 'Emagrecer', 'Ganhar condicionamento', 'Melhorar saúde e bem-estar', 'Preparar-me para uma prova'];
 
@@ -20,6 +21,11 @@ export function render() {
       <label class="setting"><span>Sugestões de carga do treinador</span><input type="checkbox" data-f="coach" ${p.coach !== false ? 'checked' : ''}></label>
       <button class="setting" data-act="theme"><span>Tema</span><b>${{ dark: 'Escuro', light: 'Claro (creme)', auto: 'Automático' }[p.theme || 'dark']}</b></button>
       <label class="setting"><span>Voz do treinador nos comandos (descanso, próxima série, cardio)</span><input type="checkbox" data-f="voice" ${p.voice !== false ? 'checked' : ''}></label>
+      ${p.voice !== false ? `<div class="voice-opts">
+        <button class="btn soft block" data-act="preview">${icon('play', 16)} Ouvir prévia da voz</button>
+        <button class="setting" data-act="voicePick"><span>Voz</span><b>${esc(p.voiceName || 'Padrão do aparelho')}</b></button>
+        <button class="setting" data-act="voiceRate"><span>Velocidade da fala</span><b>${{ 0.9: 'Mais calma', 1.02: 'Normal', 1.15: 'Mais rápida' }[p.voiceRate || 1.02] || 'Normal'}</b></button>
+      </div>` : ''}
       <label class="setting"><span>Bipes junto com a voz (3, 2, 1 e fim)</span><input type="checkbox" data-f="sound" ${p.sound ? 'checked' : ''}></label>
     </section>
     <section class="card">
@@ -39,7 +45,7 @@ export function input(el) {
   if (f === 'goal' && state.profile.goal2 === el.value) state.profile.goal2 = '';
   if (f === 'sound') state.profile.sound = el.checked;
   if (f === 'coach') state.profile.coach = el.checked;
-  if (f === 'voice') state.profile.voice = el.checked;
+  if (f === 'voice') { state.profile.voice = el.checked; save(); return rerender(); }
   if (f === 'import') return importFile(el.files[0]);
   save();
 }
@@ -64,6 +70,19 @@ export const actions = {
     const v = await menu('Tema', [{ label: 'Escuro (padrão)', value: 'dark' }, { label: 'Claro (creme Duo)', value: 'light' }, { label: 'Automático (segue o celular)', value: 'auto' }]);
     if (!v) return;
     state.profile.theme = v; save(); applyTheme(); rr();
+  },
+  preview() { if (!preview()) toast('Este aparelho não tem voz disponível'); },
+  async voicePick(el, rr) {
+    const list = ptVoices();
+    if (!list.length) return toast('Nenhuma voz em português encontrada no aparelho');
+    const v = await menu('Voz do treinador', [{ label: 'Padrão do aparelho', value: '_' }, ...list.map(x => ({ label: `${x.name}${x.lang === 'pt-BR' ? '' : ' (' + x.lang + ')'}`, value: x.name }))]);
+    if (!v) return;
+    state.profile.voiceName = v === '_' ? '' : v; save(); refreshVoice(); rr(); preview();
+  },
+  async voiceRate(el, rr) {
+    const v = await menu('Velocidade da fala', [{ label: 'Mais calma', value: '0.9' }, { label: 'Normal', value: '1.02' }, { label: 'Mais rápida', value: '1.15' }]);
+    if (!v) return;
+    state.profile.voiceRate = +v; save(); rr(); preview();
   },
   async rest(el, rr) {
     const v = await menu('Descanso padrão', [30, 45, 60, 75, 90, 120, 150, 180, 240].map(x => ({ label: fmtRest(x), value: String(x) })));

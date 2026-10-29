@@ -5,10 +5,13 @@ import { duckFor } from './ui.js';
 let voice = null;
 const synth = globalThis.speechSynthesis;
 
+// Vozes em português disponíveis no aparelho (a escolhida no perfil tem prioridade)
+export const ptVoices = () => (synth?.getVoices() || []).filter(v => v.lang?.replace('_', '-').startsWith('pt')).sort((a, b) => (b.lang === 'pt-BR') - (a.lang === 'pt-BR'));
 function pickVoice() {
-  const list = synth?.getVoices() || [];
-  voice = list.find(v => v.lang === 'pt-BR') || list.find(v => v.lang?.startsWith('pt')) || null;
+  const list = ptVoices(), want = state.profile?.voiceName;
+  voice = list.find(v => v.name === want) || list.find(v => v.lang === 'pt-BR') || list[0] || null;
 }
+export const refreshVoice = pickVoice;
 synth?.addEventListener?.('voiceschanged', pickVoice);
 pickVoice();
 
@@ -29,7 +32,7 @@ export function say(text, { interrupt = true } = {}) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'pt-BR';
   if (voice) u.voice = voice;
-  u.rate = 1.02;
+  u.rate = state.profile.voiceRate || 1.02;
   // Música abaixa durante a fala (tempo estimado pelo tamanho da frase) e volta depois
   duckFor(1500 + text.length * 70);
   u.onend = () => duckFor(400);
@@ -48,3 +51,24 @@ export function sayDuration(min) {
 
 const VERB = { corrida: 'Corra', esteira: 'Corra na esteira', caminhada: 'Caminhe', pedal: 'Pedale', bike: 'Pedale', eliptico: 'Siga no elíptico', remo: 'Reme', escada: 'Suba no simulador' };
 export const actionVerb = exId => VERB[exId] || 'Vai';
+
+// Prévia: uma sequência curta com os comandos do treino
+export function preview() {
+  unlockVoice();
+  pickVoice();
+  const lines = [
+    'Oi! Eu sou o seu treinador no Duo Move.',
+    'Boa! Descanse 1 minuto e meio.',
+    'Faltam 10 segundos. Próximo: supino reto, série 2 de 4: 8 a 10 repetições com 40 quilos.',
+    'Vai! Corra 1 minuto em ritmo leve. Intervalo 2 de 8.'
+  ];
+  if (!synth) return false;
+  synth.cancel();
+  lines.forEach((t, i) => {
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'pt-BR'; if (voice) u.voice = voice; u.rate = state.profile.voiceRate || 1.02;
+    if (i === 0) duckFor(9000);
+    synth.speak(u);
+  });
+  return true;
+}
