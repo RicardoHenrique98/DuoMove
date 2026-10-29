@@ -1,5 +1,6 @@
 import { state, save } from './store.js';
 import { applyTheme } from './theme.js';
+import { say, unlockVoice } from './voice.js';
 import { route, onRender, rerender, go } from './router.js';
 import { icon, beep, countdownTick, toast, unlockAudio } from './ui.js';
 import { esc, fmtClock } from './util.js';
@@ -112,9 +113,8 @@ setInterval(() => {
       a.restEnd = null; save();
       // Voltou do segundo plano bem depois do fim: não bipa atrasado
       if (state.profile.sound && left > -3000) beep();
-      toast('Descanso finalizado. Bora para a próxima série!');
       paintRest(); paintMini();
-      live.onRestEnd(redraw);
+      if (!live.onRestEnd(redraw)) { toast('Descanso finalizado. Bora para a próxima série!'); if (left > -3000) say('Descanso terminado. Bora para a próxima série!'); }
     } else {
       if (state.profile.sound) countdownTick(left, a.restEnd);
       document.querySelectorAll('[data-rest]').forEach(n => { n.textContent = fmtClock(left); });
@@ -127,7 +127,7 @@ setInterval(() => {
 window.addEventListener('hashchange', () => rerender({ keepScroll: false }));
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else { unlockAudio(); if (state.active) rerender(); } });
 // O iPhone só libera o som depois de um toque; qualquer toque serve
-document.addEventListener('pointerdown', unlockAudio);
+document.addEventListener('pointerdown', () => { unlockAudio(); unlockVoice(); });
 
 // Abre direto no treino em andamento se o app foi fechado no meio dele
 if (state.active && !state.active.editing && (!location.hash || location.hash === '#/inicio')) location.replace('#/treino');

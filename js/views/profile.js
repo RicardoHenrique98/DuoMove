@@ -19,6 +19,7 @@ export function render() {
       <button class="setting" data-act="rest"><span>Descanso padrão entre séries</span><b>${fmtRest(p.rest)}</b></button>
       <label class="setting"><span>Sugestões de carga do treinador</span><input type="checkbox" data-f="coach" ${p.coach !== false ? 'checked' : ''}></label>
       <button class="setting" data-act="theme"><span>Tema</span><b>${{ dark: 'Escuro', light: 'Claro (creme)', auto: 'Automático' }[p.theme || 'dark']}</b></button>
+      <label class="setting"><span>Voz do treinador (guia o cardio e avisa o fim do descanso)</span><input type="checkbox" data-f="voice" ${p.voice !== false ? 'checked' : ''}></label>
       <label class="setting"><span>Bipes do descanso e dos cronômetros (3, 2, 1 e fim)</span><input type="checkbox" data-f="sound" ${p.sound ? 'checked' : ''}></label>
     </section>
     <section class="card">
@@ -38,6 +39,7 @@ export function input(el) {
   if (f === 'goal' && state.profile.goal2 === el.value) state.profile.goal2 = '';
   if (f === 'sound') state.profile.sound = el.checked;
   if (f === 'coach') state.profile.coach = el.checked;
+  if (f === 'voice') state.profile.voice = el.checked;
   if (f === 'import') return importFile(el.files[0]);
   save();
 }

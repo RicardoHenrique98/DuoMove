@@ -8,6 +8,7 @@ import { newSet, addExercisesToActive, discardActive, finishActive, updateRoutin
 import { workoutVolume, workoutKm, newRecords } from '../stats.js';
 import { openPicker, openSwap } from './picker.js';
 import { suggest } from '../coach.js';
+import { say, sayDuration, actionVerb, unlockVoice } from '../voice.js';
 import { FEEDBACK, PHASES, afterPlanWorkout } from '../planner.js';
 import { SET_TYPES, TECHNIQUES, applyTechnique, restAfter, isMain, groupName } from '../techniques.js';
 import { bodyMap } from '../bodymap.js';
@@ -133,44 +134,107 @@ export function render() {
     <button class="btn danger-ghost block" data-act="discard">${w.editing ? 'Cancelar edição' : 'Descartar treino'}</button>`;
 }
 
-// Chamado a cada segundo pelo app: atualiza cronômetros e conclui o intervalo no fim
+// ---- Guia por voz do cardio ----
+const isCardio = e => getEx(e.exId).type === 'cardio';
+const cardioOnly = w => w.exercises.length && w.exercises.every(isCardio);
+
+function startLine(w, e, s, ms = s.t.min * 60000) {
+  const i = e.sets.indexOf(s), n = e.sets.length;
+  const t = w.plan?.type;
+  const pace = e.exId === 'corrida' && t === 'caminha' ? ' em ritmo leve' : t === 'intervalado' && n > 1 ? ' em ritmo forte' : t === 'leve' || t === 'longo' ? ' em ritmo de conversa' : '';
+  const warm = /aquecimento/i.test(e.tip || '') ? 'Aquecimento. ' : /calma|desaquec/i.test(e.tip || '') ? 'Desaquecimento. ' : '';
+  return `${warm}${actionVerb(e.exId)} ${sayDuration(ms / 60000)}${pace}.${n > 1 ? ` Intervalo ${i + 1} de ${n}.` : ''}`;
+}
+
+function restLine(w, e, sec) {
+  const t = w.plan?.type, dur = sayDuration(sec / 60);
+  if (e.exId === 'corrida' && t === 'caminha') return `Muito bem! Agora caminhe ${dur}.`;
+  if (['pedal', 'bike'].includes(e.exId)) return `Boa! Agora gire leve por ${dur}.`;
+  return `Boa! Recupere bem leve por ${dur}.`;
+}
+
+function startRun(w, e, s, prefix = '', ms = s.t.min * 60000) {
+  s.runMs = ms;
+  s.runEnd = Date.now() + ms;
+  s.vHalf = s.v10 = false;
+  w.restEnd = null;
+  say(prefix + startLine(w, e, s, ms));
+}
+
+// Próxima série de cardio que pode começar sozinha (mesmo exercício ou o seguinte, em treino só de cardio)
+function nextRun(w, e) {
+  const i = e.sets.findIndex(x => !x.done && !x.runEnd);
+  if (i > 0 && e.sets[i].t?.min) return { e, s: e.sets[i] };
+  if (!cardioOnly(w)) return null;
+  for (const x of w.exercises.slice(w.exercises.indexOf(e) + 1)) {
+    const s = x.sets.find(y => !y.done && y.t?.min);
+    if (s) return { e: x, s };
+  }
+  return null;
+}
+
+// Chamado a cada segundo pelo app: atualiza cronômetros, fala os avisos e conclui o intervalo no fim
 export function tickRuns(rerender) {
   const w = a();
   if (!w) return;
+  // Aviso antes de acabar a recuperação
+  if (w.restEnd && !w.restWarned && w.restEnd - Date.now() <= 10500) {
+    const ex = w.exercises.find(x => x.id === w.restFor);
+    const nx = ex && nextRun(w, ex);
+    if (nx) { w.restWarned = true; say(`Faltam 10 segundos. Prepare-se: ${actionVerb(nx.e.exId).toLowerCase()} de novo.`); }
+  }
   for (const e of w.exercises) for (const s of e.sets) {
     if (s.runStart) { const n = document.querySelector(`[data-run="${s.id}"]`); if (n) n.textContent = fmtClock(Date.now() - s.runStart); continue; }
     if (!s.runEnd) continue;
-    const left = s.runEnd - Date.now(), type = getEx(e.exId).type;
+    const left = s.runEnd - Date.now(), type = getEx(e.exId).type, total = s.runMs ?? s.t.min * 60000;
     if (left > 0) {
       if (state.profile.sound) countdownTick(left, s.runEnd);
       const n = document.querySelector(`[data-run="${s.id}"]`); if (n) n.textContent = fmtClock(left);
+      if (type === 'cardio') {
+        if (!s.vHalf && total >= 120000 && left <= total / 2) { s.vHalf = true; say('Metade. Mantenha o ritmo.'); }
+        if (!s.v10 && total >= 30000 && left <= 10500) { s.v10 = true; say('Faltam 10 segundos.'); }
+      }
       continue;
     }
-    if (s[UNIT[type][0]] == null) setTime(s, type, s.runMs ?? s.t.min * 60000);
+    if (s[UNIT[type][0]] == null) setTime(s, type, total);
     s.runEnd = null; s.done = true;
     const r = restAfter(w.exercises, e, s, e.rest);
-    if (r.rest) startRest(r.rest); else w.restEnd = null;
     if (state.profile.sound) beep();
-    toast(r.rest ? `Tempo concluído. Recupere por ${fmtRest(r.rest)}.` : 'Tempo concluído!');
+    if (type !== 'cardio') {
+      if (r.rest) startRest(r.rest); else w.restEnd = null;
+      toast(r.rest ? `Tempo concluído. Recupere por ${fmtRest(r.rest)}.` : 'Tempo concluído!');
+      save(); rerender();
+      continue;
+    }
+    const nx = nextRun(w, e);
+    if (r.rest && nx && nx.e === e) {
+      startRest(r.rest); w.restFor = e.id;
+      say(restLine(w, e, r.rest));
+      toast(`Intervalo concluído. Recupere por ${fmtRest(r.rest)}.`);
+    } else if (nx) {
+      // Emenda direto no próximo exercício (ex.: dos tiros para o desaquecimento)
+      startRun(w, nx.e, nx.s, nx.e === e ? '' : 'Muito bem! ');
+      toast(`Agora: ${getEx(nx.e.exId).name}`);
+    } else {
+      w.restEnd = null;
+      say(cardioOnly(w) ? 'Treino concluído! Parabéns. Toque em finalizar para salvar.' : 'Intervalo concluído.');
+      toast('Intervalo concluído!');
+    }
     save(); rerender();
   }
 }
 
-// Fim da recuperação: se o próximo é um intervalo de cardio, ele começa sozinho
+// Fim da recuperação: o próximo intervalo de cardio começa sozinho
 export function onRestEnd(rerender) {
   const w = a();
-  if (!w) return;
-  for (const e of w.exercises) {
-    if (getEx(e.exId).type !== 'cardio' || e.sets.length < 2) continue;
-    const i = e.sets.findIndex(s => !s.done);
-    if (i > 0 && e.sets[i - 1].done && e.sets[i].t?.min && !e.sets[i].runEnd) {
-      e.sets[i].runMs = e.sets[i].t.min * 60000;
-      e.sets[i].runEnd = Date.now() + e.sets[i].runMs;
-      toast('Próximo intervalo: vai!');
-      save(); rerender();
-      return;
-    }
-  }
+  if (!w) return false;
+  const ex = w.exercises.find(x => x.id === w.restFor) || w.exercises.find(x => isCardio(x) && x.sets.some(s => s.done) && x.sets.some(s => !s.done));
+  const nx = ex && isCardio(ex) && nextRun(w, ex);
+  if (!nx) return false;
+  startRun(w, nx.e, nx.s, 'Vai! ');
+  toast('Próximo intervalo: vai!');
+  save(); rerender();
+  return true;
 }
 
 let wakeLock = null;
@@ -201,6 +265,7 @@ function startRest(sec) {
   if (!sec || w.editing) return;
   w.restEnd = Date.now() + sec * 1000;
   w.restTotal = sec;
+  w.restWarned = false;
 }
 
 const REST_OPTIONS = [0, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300];
@@ -209,7 +274,7 @@ export const actions = {
   minimize: () => go('/inicio'),
 
   async check(el, rerender) {
-    unlockAudio();
+    unlockAudio(); unlockVoice();
     const e = findEx(el), s = findSet(el, e), ex = getEx(e.exId);
     if (!s.done) {
       if (UNIT[ex.type]) stopRun(s, ex.type);
@@ -240,9 +305,11 @@ export const actions = {
     const e = findEx(el), s = findSet(el, e), type = getEx(e.exId).type;
     if (s.runEnd || s.runStart) stopRun(s, type);
     else {
+      unlockVoice();
       const ms = runMs(s, type, prevAt(e, s));
-      if (ms) { s.runMs = ms; s.runEnd = Date.now() + ms; } else s.runStart = Date.now();
-      a().restEnd = null;
+      if (ms && type === 'cardio') startRun(a(), e, s, '', ms);
+      else if (ms) { s.runMs = ms; s.runEnd = Date.now() + ms; a().restEnd = null; }
+      else { s.runStart = Date.now(); a().restEnd = null; }
     }
     save(); rerender();
   },
