@@ -108,8 +108,10 @@ for (const voice of arg('vozes', 'Charon,Leda').split(',')) {
   const id = voice.toLowerCase(), dir = `data/voz/${id}`, progress = `${dir}/.live.json`;
   await mkdir(dir, { recursive: true });
   const done = await exists(progress) ? JSON.parse(await readFile(progress, 'utf8')) : {};
+  // --refazer f-boa,n-7 : gera de novo só essas falas (ids do catálogo)
+  for (const c of (arg('refazer', '') || '').split(',').filter(Boolean)) delete done[c];
   const items = catalog();
-  const ready = async c => done[c] && await exists(`${dir}/${done[c]}`) && (await readFile(`${dir}/${done[c]}`)).length > 2048;
+  const ready = async c => !!done[c] && await exists(`${dir}/${done[c]}`) && (await readFile(`${dir}/${done[c]}`)).length > 2048;
   // Primeiro as palavras soltas que faltam, em listas de 6
   const singles = [];
   for (const x of items) if (!/\s/.test(x.text.trim()) && !await ready(x.id)) singles.push(x);

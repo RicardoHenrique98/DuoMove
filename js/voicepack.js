@@ -28,6 +28,8 @@ export async function downloadPack(v, onProgress) {
     if (!(await cache.match(url))) { const r = await fetch(url); if (!r.ok) throw new Error(url); await cache.put(url, r); }
     onProgress?.(++done, files.length);
   }
+  // Guarda também a lista do pacote: sem ela, abrir o app já offline não acharia as falas
+  await cache.put(`${BASE}${v}/manifest.json`, new Response(JSON.stringify(m), { headers: { 'content-type': 'application/json' } }));
   state.profile.voicePackReady = { voice: v, version: m.version };
   save();
   ready = null;
@@ -48,7 +50,7 @@ export async function syncPack() {
 async function loadReady() {
   const v = state.profile.voicePack, r = state.profile.voicePackReady;
   if (!v || r?.voice !== v || !globalThis.caches) return null;
-  try { const m = await (await caches.match(`${BASE}${v}/manifest.json`) || await fetch(`${BASE}${v}/manifest.json`)).json(); return { v, m }; } catch { return null; }
+  try { const m = await (await (await caches.open(cacheName(v))).match(`${BASE}${v}/manifest.json`) || await fetch(`${BASE}${v}/manifest.json`)).json(); return { v, m }; } catch { return null; }
 }
 
 async function buffer(v, file) {
