@@ -1,12 +1,12 @@
 // Plano do treinador: questionário inicial, cartão "Treino de hoje" e página do plano
 import { state, save, getEx } from '../store.js';
 import { esc, fmtDate, fmtRest } from '../util.js';
-import { icon, confirmBox, toast, menu } from '../ui.js';
+import { icon, confirmBox, toast, menu, sheet } from '../ui.js';
 import { go, back } from '../router.js';
 import { LEVELS, BREAKS, PLACES, PHASES, VARIETY, QUALITIES, SEXES, FOCUS, createPlan, nextSession, phaseStatus, planWorkouts } from '../planner.js';
 import { startPlanSession } from '../workout.js';
 import { CARDIO_CHOICES } from '../cardio.js';
-import { RACES, FIVE_K, RACE_PHASES, raceStatus, zones, pace } from '../race.js';
+import { RACES, FIVE_K, RACE_PHASES, raceStatus, zones, pace, initRace } from '../race.js';
 import { voicePacks, syncPack } from '../voicepack.js';
 import { TECHNIQUES } from '../techniques.js';
 
@@ -142,7 +142,7 @@ export const todayActions = {
 // Contagem regressiva, fase e ritmos-alvo da prova
 function raceCard() {
   const r = state.plan.race;
-  if (!r || r.done) return '';
+  if (!r || r.done) return ['corrida', 'ambos'].includes(state.profile.cardio) ? `<button class="btn soft block" data-act="raceAdd">${icon('plus', 16)} Adicionar prova de corrida</button>` : '';
   const rs = raceStatus(r), Z = zones(r);
   const order = ['base', 'construcao', 'pico', 'polimento', 'prova'];
   const rows = Z ? [['Leve', Z.leve], ['Longão', Z.longo], ['Limiar (tempo)', Z.tempo], ['Tiros', Z.tiros], ['Ritmo de prova', Z.prova]]
@@ -152,6 +152,7 @@ function raceCard() {
     <div class="progress-bar" style="margin:10px 0"><i style="width:${Math.min(100, (rs.week / rs.total) * 100)}%"></i></div>
     <p class="small">Semana ${rs.week} de ${rs.total} · <b>${esc(RACE_PHASES[rs.phase][0])}</b>: ${esc(RACE_PHASES[rs.phase][1])}</p>
     <div class="race-phases">${order.map(ph => `<span class="${ph === rs.phase ? 'on' : ''}">${esc(RACE_PHASES[ph][0])}</span>`).join('')}</div>
+    <div class="row gap" style="margin-top:8px"><button class="link" data-act="raceAdd">Alterar prova</button><button class="link" data-act="raceRemove">Remover prova</button></div>
     ${Z ? `<p class="muted small" style="margin-top:10px">Seus ritmos (5 km em ${Math.round(r.p5 * 5)} min · prova prevista em ${fmtTime(Z.racePace * RACES[r.dist][1])}):</p>${rows}` : '<p class="muted small" style="margin-top:10px">Os ritmos aparecem depois da primeira corrida leve com a distância anotada.</p>'}
   </section>`;
 }
@@ -188,6 +189,31 @@ export const page = {
   actions: {
     ...todayActions,
     redo: () => startWizard(),
+    // Liga a prova sem refazer o plano: musculação e pedal seguem onde estão
+    raceAdd(el, rerender) {
+      const p = state.profile, min = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+      const opt = (o, cur) => Object.entries(o).map(([k, v]) => `<option value="${k}" ${String(cur) === k ? 'selected' : ''}>${esc(Array.isArray(v) ? v[0] : v)}</option>`).join('');
+      sheet(`<h3 class="sheet-title">Prova de corrida</h3>
+        <p class="muted small">Só os dias de corrida passam a seguir a prova. A musculação e o pedal continuam de onde estão.</p>
+        <label class="field"><span>Distância</span><select data-r="race">${opt(RACES, p.race || 10)}</select></label>
+        <label class="field"><span>Data da prova</span><input type="date" data-r="raceDate" min="${min}" value="${esc(p.raceDate && p.raceDate >= min ? p.raceDate : '')}"></label>
+        <label class="field"><span>Seu tempo atual nos 5 km</span><select data-r="raceTime">${opt(Object.fromEntries(Object.keys(FIVE_K).sort((a, b) => (+a || 99) - (+b || 99)).map(k => [k, FIVE_K[k]])), p.raceTime ?? 0)}</select></label>
+        <button class="btn primary block" data-act="save" style="margin-top:12px">Salvar prova</button>
+        <button class="btn ghost block" data-act="close">Cancelar</button>`, {
+        save(t, api) {
+          const v = k => api.el.querySelector(`[data-r="${k}"]`).value, date = v('raceDate');
+          if (!date || date < min) return toast('Escolha uma data a partir da semana que vem');
+          Object.assign(p, { race: v('race'), raceDate: date, raceTime: +v('raceTime') });
+          initRace(state.plan, p, null);
+          state.plan.log.push({ ts: Date.now(), phase: state.plan.phase, why: `Prova adicionada: ${RACES[p.race][0]} em ${fmtDate(state.plan.race.date, { day: '2-digit', month: 'long' })}. Só a corrida muda.` });
+          save(); api.close(); rerender(); toast('Prova adicionada');
+        }
+      });
+    },
+    async raceRemove(el, rerender) {
+      if (!(await confirmBox('Remover a prova?', 'A corrida volta aos treinos normais. O resto do plano não muda.', 'Remover'))) return;
+      delete state.plan.race; state.profile.race = 'nao'; save(); rerender();
+    },
     async variety(el, rerender) {
       const v = await menu('Troca de ficha', Object.entries(VARIETY).map(([k, [label, desc]]) => ({ label: label + (state.profile.variety === k ? '  ✓' : ''), desc, value: k })));
       if (!v) return;
