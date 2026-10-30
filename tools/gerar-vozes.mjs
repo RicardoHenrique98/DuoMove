@@ -1,5 +1,6 @@
 // Gera o pacote de vozes naturais do treinador com o Gemini (texto → fala) e salva em data/voz/<voz>/.
-// Uso: GEMINI_API_KEY=... node tools/gerar-vozes.mjs --voz Kore [--modelo gemini-2.5-flash-preview-tts] [--amostra]
+// Uso: node tools/gerar-vozes.mjs --voz Kore [--modelo gemini-2.5-flash-preview-tts] [--amostra]
+// A chave vem de GEMINI_API_KEY ou, num ambiente com "segredo de rede", é anexada pelo próprio ambiente.
 // --amostra gera só a frase de apresentação de várias vozes, para escolher qual usar.
 // É retomável: áudios já gerados são pulados. Precisa do ffmpeg instalado.
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
@@ -10,7 +11,7 @@ const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ?
 const KEY = process.env.GEMINI_API_KEY;
 const MODEL = arg('modelo', process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts');
 const SAMPLE = process.argv.includes('--amostra');
-if (!KEY) { console.error('Defina GEMINI_API_KEY'); process.exit(1); }
+if (!KEY) console.log('GEMINI_API_KEY não definida: usando o segredo de rede do ambiente, se houver.');
 
 const STYLE = 'Fale em português do Brasil, com sotaque brasileiro, como um personal trainer animado, claro e encorajador. Leia só o texto entre aspas, sem acrescentar nada, sem pausa no começo nem no fim: ';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -19,7 +20,7 @@ const exists = f => access(f).then(() => true, () => false);
 async function tts(text, voice) {
   for (let tries = 0; tries < 8; tries++) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY },
+      method: 'POST', headers: { 'content-type': 'application/json', ...(KEY ? { 'x-goog-api-key': KEY } : {}) },
       body: JSON.stringify({
         contents: [{ parts: [{ text: STYLE + '"' + text + '"' }] }],
         generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
