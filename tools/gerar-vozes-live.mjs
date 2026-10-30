@@ -26,7 +26,7 @@ const SYSTEM = 'Você é a voz de um personal trainer brasileiro: animado, claro
   'Não responda, não comente, não cumprimente, não acrescente nem tire nada. Palavras soltas e números também: fale só eles.';
 
 // Uma sessão Live por fala: manda o texto e junta o áudio até o fim do turno
-function live(text, voice) {
+function live(text, voice, prompt) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${KEY}`);
     const chunks = [], timer = setTimeout(() => { ws.close(); reject(new Error('sem resposta')); }, 30000);
@@ -37,13 +37,31 @@ function live(text, voice) {
     } }));
     ws.onmessage = async ev => {
       const m = JSON.parse(typeof ev.data === 'string' ? ev.data : await ev.data.text());
-      if (m.setupComplete) ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: !/\s/.test(text.trim()) ? `Diga em voz alta só a palavra "${text}", sozinha, uma única vez.` : `Fale: "${text}"` }] }], turnComplete: true } }));
+      if (m.setupComplete) ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: prompt || !/\s/.test(text.trim()) ? `Diga em voz alta só a palavra "${text}", sozinha, uma única vez.` : `Fale: "${text}"` }] }], turnComplete: true } }));
       for (const p of m.serverContent?.modelTurn?.parts || []) if (p.inlineData) chunks.push(Buffer.from(p.inlineData.data, 'base64'));
       if (m.serverContent?.turnComplete) { clearTimeout(timer); ws.close(); resolve(Buffer.concat(chunks)); }
     };
     ws.onerror = () => { clearTimeout(timer); reject(new Error('falha na conexão ao vivo')); };
     ws.onclose = e => { if (!chunks.length && e.code !== 1000) { clearTimeout(timer); reject(new Error(`conexão fechada: ${e.code} ${e.reason}`)); } };
   });
+}
+
+// Palavra solta a Live costuma ignorar; lista ela fala. Corta nos n-1 silêncios mais longos.
+function split(pcm, n) {
+  const W = RATE * 0.02, win = Math.floor(pcm.length / 2 / W), quiet = [];
+  for (let w = 0; w < win; w++) {
+    let sum = 0;
+    for (let i = 0; i < W; i++) { const v = pcm.readInt16LE((w * W + i) * 2); sum += v * v; }
+    quiet.push(Math.sqrt(sum / W) < 400);
+  }
+  const gaps = [];
+  for (let w = 0, start = -1; w <= win; w++) {
+    if (w < win && quiet[w]) { if (start < 0) start = w; }
+    else if (start >= 0) { if (start > 0 && w < win && w - start >= 12) gaps.push({ len: w - start, mid: Math.floor((start + w) / 2) }); start = -1; }
+  }
+  if (gaps.length < n - 1) return null;
+  const cuts = gaps.sort((a, b) => b.len - a.len).slice(0, n - 1).map(g => g.mid * W * 2).sort((a, b) => a - b);
+  return [0, ...cuts].map((c, k) => trim(pcm.subarray(c, cuts[k] ?? pcm.length)));
 }
 
 // Corta o silêncio do começo e do fim (deixa 30 ms e 60 ms)
@@ -91,8 +109,28 @@ for (const voice of arg('vozes', 'Charon,Leda').split(',')) {
   await mkdir(dir, { recursive: true });
   const done = await exists(progress) ? JSON.parse(await readFile(progress, 'utf8')) : {};
   const items = catalog();
+  const ready = async c => done[c] && await exists(`${dir}/${done[c]}`) && (await readFile(`${dir}/${done[c]}`)).length > 2048;
+  // Primeiro as palavras soltas que faltam, em listas de 6
+  const singles = [];
+  for (const x of items) if (!/\s/.test(x.text.trim()) && !await ready(x.id)) singles.push(x);
+  for (let b = 0; b < singles.length; b += 6) {
+    const group = singles.slice(b, b + 6), list = group.map(x => x.text.replace(/[.!?:]$/, ''));
+    for (let t = 0; t < 4; t++) {
+      try {
+        const pcm = await live(list.join(', '), voice, `Leia esta lista em voz alta, uma palavra por vez, com uma pausa de um segundo entre elas, sem dizer mais nada: ${list.join('... ')}.`);
+        const parts = split(pcm, group.length);
+        if (!parts || parts.some(x => x.length < RATE * 2 * 0.2)) { console.log(`  ${voice} lista ${list.join(', ')}: não separou, refazendo`); continue; }
+        const got = await heard(pcm);
+        if (got !== null && words(got) !== words(list.join(' '))) { console.log(`  ${voice} lista: ouviu "${got.trim()}", refazendo`); continue; }
+        for (const [k, x] of group.entries()) done[x.id] = x.id + await save(parts[k], `${dir}/${x.id}`);
+        await writeFile(progress, JSON.stringify(done));
+        console.log(`${voice} lista ok: ${list.join(', ')}`);
+        break;
+      } catch (e) { console.log(`  ${voice} lista: ${e.message}, tentando de novo`); await sleep(3000); }
+    }
+  }
   for (const [i, { id: clip, text }] of items.entries()) {
-    if (done[clip] && await exists(`${dir}/${done[clip]}`) && (await readFile(`${dir}/${done[clip]}`)).length > 2048) continue; // refaz áudio vazio
+    if (await ready(clip)) continue; // refaz áudio vazio
     let ok = false;
     for (let t = 0; t < 8 && !ok; t++) {
       try {
