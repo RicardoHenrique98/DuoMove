@@ -396,3 +396,6 @@ body.no-tabs .tabbar { display: none; }
 .pack.on { border-color: var(--accent); background: var(--accent-soft); }
 .pack-pick small { color: var(--muted); }
 .km-total { margin: 14px 0; }
+.race-phases { display: flex; gap: 4px; margin-top: 10px; }
+.race-phases span { flex: 1; text-align: center; font-size: 11px; padding: 5px 2px; border-radius: 8px; background: var(--panel2); color: var(--label); }
+.race-phases span.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }

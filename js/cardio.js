@@ -3,6 +3,7 @@
 // Com base formada: treinos leves (zona 2), intervalados e longos, crescendo ~10% por semana.
 import { state, save } from './store.js';
 import { fmtPace } from './util.js';
+import { initRace, raceSession, raceStatus, afterRace } from './race.js';
 
 export const CARDIO_CHOICES = { nao: 'Só musculação', corrida: 'Corrida', pedal: 'Pedal', ambos: 'Corrida e pedal' };
 
@@ -23,6 +24,7 @@ export function initCardio(plan, p) {
   plan.run = { base: !returning, stage: 0, ok: 0, easy: returning ? 25 : 30, long: 45, iv: 0, n: 0 };
   plan.bike = { easy: returning ? 35 : 45, long: returning ? 60 : 75, iv: 0, n: 0 };
   plan.cidx = 0;
+  initRace(plan, p, recentEasyPace());
 }
 
 const modeFor = (p, plan) => p.cardio === 'ambos' ? (plan.cidx % 2 ? 'pedal' : 'corrida') : p.cardio;
@@ -47,6 +49,12 @@ export function cardioSession(plan, p, phase) {
   const f = phase === 'deload' ? 0.7 : phase === 'readapt' ? 0.8 : 1;
   const reasons = [], exercises = [];
   const exId = mode === 'pedal' ? 'pedal' : 'corrida';
+  const r = mode === 'corrida' && plan.race && !plan.race.done ? plan.race : null, rs = r && raceStatus(r);
+  if (rs && rs.daysLeft < -1) r.done = true; // a data passou sem registrar a prova
+  else if (rs && prog.base) {
+    const s = raceSession(plan, p, prog, RUN_IV);
+    return { kind: 'cardio', mode, race: true, ...s };
+  }
 
   if (mode === 'corrida' && !prog.base) {
     const [run, walk, reps] = STAGES[Math.min(prog.stage, STAGES.length - 1)];
@@ -55,6 +63,7 @@ export function cardioSession(plan, p, phase) {
     exercises.push(C('corrida', reps, run, walk * 60, walk ? `Corra ${run} min em ritmo leve e caminhe ${walk} min no descanso. Use o botão ▶ para cronometrar.` : 'Corrida contínua em ritmo de conversa.'));
     exercises.push(C('caminhada', 1, 5, 0, 'Volta à calma.'));
     reasons.push(`Estágio ${prog.stage + 1} de ${STAGES.length} do corre-caminha. Dois treinos tranquilos seguidos e você avança.`);
+    if (rs) reasons.unshift(`${rs.name} em ${rs.weeksLeft} semanas: primeiro construímos a base com o corre-caminha, depois entram os treinos da prova.`);
   } else if (type === 'intervalado') {
     const [reps, work] = (mode === 'pedal' ? BIKE_IV : RUN_IV)[Math.min(prog.iv, (mode === 'pedal' ? BIKE_IV : RUN_IV).length - 1)];
     const rec = mode === 'pedal' ? 180 : 120;
@@ -86,7 +95,11 @@ export function afterCardio(w, fb) {
   prog.n++;
   plan.cidx++;
   let msg = null;
-  if (w.plan.type === 'caminha') {
+  if (w.plan.race && plan.race) {
+    if (w.plan.type === 'tiros') { if (good) prog.iv++; if (hard) prog.iv = Math.max(0, prog.iv - 1); }
+    if (w.plan.type === 'leve' && good) prog.easy = Math.min(60, Math.round(prog.easy * 1.05));
+    msg = afterRace(plan.race, w, fb);
+  } else if (w.plan.type === 'caminha') {
     if (good) prog.ok++;
     if (hard) { prog.stage = Math.max(0, prog.stage - 1); prog.ok = 0; msg = 'Pegou pesado: no próximo, voltamos um estágio.'; }
     if (prog.ok >= 2) {

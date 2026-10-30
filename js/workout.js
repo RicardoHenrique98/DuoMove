@@ -49,7 +49,7 @@ export async function startPlanSession(sess) {
   if (!(await canStart())) return;
   const ctx = { rir: sess.status.rir, deload: sess.phase === 'deload' };
   begin({
-    name: sess.name, kind: sess.kind === 'cardio' ? sess.mode : 'musculacao', plan: { kind: sess.kind, mode: sess.mode || null, type: sess.type || null, phase: sess.phase, key: sess.key, week: sess.status.week },
+    name: sess.name, kind: sess.kind === 'cardio' ? sess.mode : 'musculacao', plan: { kind: sess.kind, mode: sess.mode || null, type: sess.type || null, phase: sess.phase, key: sess.key, week: sess.status.week, race: !!sess.race, expKm: sess.expKm || null },
     exercises: sess.exercises.map(e => ({ ...newExercise(e.exId, e.sets, e.rest, e.tip || '', ctx), group: e.group, tech: e.tech, quality: e.rx?.quality || null }))
   });
 }
