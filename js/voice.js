@@ -26,17 +26,33 @@ export function unlockVoice() {
   unlockVoice.done = true;
 }
 
-export function say(text, { interrupt = true } = {}) {
-  if (!voiceOn() || !text) return;
-  if (interrupt) synth.cancel();
+function utter(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'pt-BR';
   if (voice) u.voice = voice;
   u.rate = state.profile.voiceRate || 1.02;
-  // Música abaixa durante a fala (tempo estimado pelo tamanho da frase) e volta depois
-  duckFor(1500 + text.length * 70);
-  u.onend = () => duckFor(400);
-  synth.speak(u);
+  return u;
+}
+
+// O Safari do iPhone descarta a fala se ela vem logo depois de um cancel(): só cancela
+// quando há algo falando e espera um instante antes de falar de novo
+let talking = 0; // falas nossas em andamento (a fala silenciosa de liberação não conta)
+function speakAll(texts, onStart) {
+  const go = () => texts.forEach((t, i) => {
+    const u = utter(t);
+    talking++;
+    if (i === 0 && onStart) u.onstart = onStart;
+    u.onend = u.onerror = () => { talking = Math.max(0, talking - 1); if (!talking) duckFor(400); };
+    synth.speak(u);
+  });
+  duckFor(1500 + texts.join(' ').length * 70);
+  // Fala direto (dentro do toque, como o iPhone exige); só interrompe se uma fala nossa estiver tocando
+  if (talking) { synth.cancel(); talking = 0; setTimeout(go, 150); } else go();
+}
+
+export function say(text) {
+  if (!voiceOn() || !text) return;
+  speakAll([text]);
 }
 
 // "1 minuto e meio", "30 segundos", "5 minutos"
@@ -52,23 +68,18 @@ export function sayDuration(min) {
 const VERB = { corrida: 'Corra', esteira: 'Corra na esteira', caminhada: 'Caminhe', pedal: 'Pedale', bike: 'Pedale', eliptico: 'Siga no elíptico', remo: 'Reme', escada: 'Suba no simulador' };
 export const actionVerb = exId => VERB[exId] || 'Vai';
 
-// Prévia: uma sequência curta com os comandos do treino
-export function preview() {
-  unlockVoice();
+// Prévia: uma sequência curta com os comandos do treino. Se não começar a falar em
+// alguns segundos, avisa o motivo mais comum (modo silencioso)
+export function preview(onSilent) {
+  if (!synth) return false;
   pickVoice();
-  const lines = [
+  let started = false;
+  speakAll([
     'Oi! Eu sou o seu treinador no Duo Move.',
     'Boa! Descanse 1 minuto e meio.',
     'Faltam 10 segundos. Próximo: supino reto, série 2 de 4: 8 a 10 repetições com 40 quilos.',
     'Vai! Corra 1 minuto em ritmo leve. Intervalo 2 de 8.'
-  ];
-  if (!synth) return false;
-  synth.cancel();
-  lines.forEach((t, i) => {
-    const u = new SpeechSynthesisUtterance(t);
-    u.lang = 'pt-BR'; if (voice) u.voice = voice; u.rate = state.profile.voiceRate || 1.02;
-    if (i === 0) duckFor(9000);
-    synth.speak(u);
-  });
+  ], () => { started = true; });
+  setTimeout(() => { if (!started && !synth.speaking) onSilent?.(); }, 2500);
   return true;
 }

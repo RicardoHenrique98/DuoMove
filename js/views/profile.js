@@ -1,6 +1,6 @@
 import { state, save, exportData, replaceState, resetState } from '../store.js';
 import { esc, fmtRest, fmtDate } from '../util.js';
-import { icon, menu, confirmBox, toast } from '../ui.js';
+import { icon, menu, confirmBox, toast, sheet } from '../ui.js';
 import { rerender } from '../router.js';
 import { applyTheme } from '../theme.js';
 import { SEXES, FOCUS } from '../planner.js';
@@ -65,13 +65,18 @@ async function importFile(file) {
   }
 }
 
+const sheetInfo = (title, text) => sheet(`<h3 class="sheet-title">${esc(title)}</h3><p class="muted">${esc(text)}</p><button class="btn primary block" data-act="close">Entendi</button>`);
+
 export const actions = {
   async theme(el, rr) {
     const v = await menu('Tema', [{ label: 'Escuro (padrão)', value: 'dark' }, { label: 'Claro (creme Duo)', value: 'light' }, { label: 'Automático (segue o celular)', value: 'auto' }]);
     if (!v) return;
     state.profile.theme = v; save(); applyTheme(); rr();
   },
-  preview() { if (!preview()) toast('Este aparelho não tem voz disponível'); },
+  preview() {
+    const ok = preview(() => sheetInfo('Não saiu som?', 'Confira: 1) a chavinha lateral do iPhone não está no modo silencioso (laranja); 2) o volume está alto; 3) em Ajustes → Acessibilidade → Conteúdo Falado → Vozes, existe uma voz em Português (Brasil) baixada. Depois toque em “Ouvir prévia” de novo.'));
+    if (!ok) toast('Este aparelho não tem voz disponível');
+  },
   async voicePick(el, rr) {
     const list = ptVoices();
     if (!list.length) return toast('Nenhuma voz em português encontrada no aparelho');
