@@ -99,6 +99,7 @@ export function duckFor(ms) {
   clearTimeout(restoreTimer);
   restoreTimer = setTimeout(() => { try { as.type = 'auto'; } catch { /* sem suporte */ } }, ms);
 }
+export const audioCtx = () => audio;
 export function unlockAudio() {
   try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); } catch { /* sem áudio */ }
 }

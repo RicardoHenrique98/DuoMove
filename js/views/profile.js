@@ -5,6 +5,7 @@ import { rerender } from '../router.js';
 import { applyTheme } from '../theme.js';
 import { SEXES, FOCUS } from '../planner.js';
 import { preview, ptVoices, refreshVoice } from '../voice.js';
+import { voicePacks, downloadPack } from '../voicepack.js';
 
 const GOALS = ['Ganhar força', 'Ganhar massa muscular', 'Emagrecer', 'Ganhar condicionamento', 'Melhorar saúde e bem-estar', 'Preparar-me para uma prova'];
 
@@ -23,7 +24,8 @@ export function render() {
       <label class="setting"><span>Voz do treinador nos comandos (descanso, próxima série, cardio)</span><input type="checkbox" data-f="voice" ${p.voice !== false ? 'checked' : ''}></label>
       ${p.voice !== false ? `<div class="voice-opts">
         <button class="btn soft block" data-act="preview">${icon('play', 16)} Ouvir prévia da voz</button>
-        <button class="setting" data-act="voicePick"><span>Voz</span><b>${esc(p.voiceName || 'Padrão do aparelho')}</b></button>
+        <div id="voicepack"></div>
+        <button class="setting" data-act="voicePick"><span>Voz do aparelho (reserva)</span><b>${esc(p.voiceName || 'Padrão do aparelho')}</b></button>
         <button class="setting" data-act="voiceRate"><span>Velocidade da fala</span><b>${{ 0.9: 'Mais calma', 1.02: 'Normal', 1.15: 'Mais rápida' }[p.voiceRate || 1.02] || 'Normal'}</b></button>
       </div>` : ''}
       <label class="setting"><span>Bipes junto com a voz (3, 2, 1 e fim)</span><input type="checkbox" data-f="sound" ${p.sound ? 'checked' : ''}></label>
@@ -38,6 +40,8 @@ export function render() {
     <button class="btn danger-ghost block" data-act="reset">Apagar todos os dados</button>
     <p class="footnote">Duo Move organiza seus treinos e não substitui a orientação de um profissional de educação física ou de saúde. Respeite seus limites e interrompa a atividade se sentir dor, tontura ou mal-estar.</p>`;
 }
+
+export function mount() { paintPacks(); }
 
 export function input(el) {
   const f = el.dataset.f;
@@ -65,6 +69,20 @@ async function importFile(file) {
   }
 }
 
+// Vozes naturais (pacote baixado para usar offline)
+async function paintPacks() {
+  const box = document.getElementById('voicepack');
+  if (!box) return;
+  const packs = await voicePacks();
+  if (!packs.length) { box.innerHTML = ''; return; }
+  const p = state.profile, readyV = p.voicePackReady?.voice;
+  box.innerHTML = `<div class="packs"><b>Voz natural do treinador</b><small class="muted">Baixada uma vez no aparelho: funciona sem internet na academia.</small>
+    ${packs.map(v => `<div class="pack ${p.voicePack === v.id ? 'on' : ''}">
+      <button class="icon-btn" data-act="packSample" data-v="${v.id}" aria-label="Ouvir amostra de ${esc(v.name)}">${icon('play', 16)}</button>
+      <button class="grow pack-pick" data-act="packPick" data-v="${v.id}"><b>${esc(v.name)}</b><small>${p.voicePack === v.id ? (readyV === v.id ? 'Baixada ✓ funciona offline' : '<span data-pack-status>Baixando…</span>') : 'Toque para usar'}</small></button></div>`).join('')}
+    <button class="pack ${!p.voicePack ? 'on' : ''} pack-pick" data-act="packPick" data-v=""><span class="grow"><b>Voz do aparelho</b><small>Sem download</small></span></button></div>`;
+}
+
 const sheetInfo = (title, text) => sheet(`<h3 class="sheet-title">${esc(title)}</h3><p class="muted">${esc(text)}</p><button class="btn primary block" data-act="close">Entendi</button>`);
 
 export const actions = {
@@ -72,6 +90,17 @@ export const actions = {
     const v = await menu('Tema', [{ label: 'Escuro (padrão)', value: 'dark' }, { label: 'Claro (creme Duo)', value: 'light' }, { label: 'Automático (segue o celular)', value: 'auto' }]);
     if (!v) return;
     state.profile.theme = v; save(); applyTheme(); rr();
+  },
+  packSample(el) { new Audio(`data/voz/amostras/${el.dataset.v}.m4a`).play().catch(() => toast('Amostra indisponível')); },
+  async packPick(el) {
+    const v = el.dataset.v;
+    state.profile.voicePack = v; save(); await paintPacks();
+    if (!v) return toast('Usando a voz do aparelho');
+    if (state.profile.voicePackReady?.voice === v) return preview();
+    try {
+      await downloadPack(v, (d, n) => { const st = document.querySelector('[data-pack-status]'); if (st) st.textContent = `Baixando ${d} de ${n}…`; });
+      await paintPacks(); toast('Voz baixada: funciona offline'); preview();
+    } catch { toast('Sem internet agora. A voz baixa sozinha quando você estiver conectado.'); }
   },
   preview() {
     const ok = preview(() => sheetInfo('Não saiu som?', 'Confira: 1) a chavinha lateral do iPhone não está no modo silencioso (laranja); 2) o volume está alto; 3) em Ajustes → Acessibilidade → Conteúdo Falado → Vozes, existe uma voz em Português (Brasil) baixada. Depois toque em “Ouvir prévia” de novo.'));

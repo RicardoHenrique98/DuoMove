@@ -1,6 +1,7 @@
 import { state, save } from './store.js';
 import { applyTheme } from './theme.js';
 import { say, unlockVoice } from './voice.js';
+import { syncPack } from './voicepack.js';
 import { route, onRender, rerender, go } from './router.js';
 import { icon, beep, countdownTick, toast, unlockAudio } from './ui.js';
 import { esc, fmtClock } from './util.js';
@@ -135,6 +136,10 @@ if (state.active && !state.active.editing && (!location.hash || location.hash ==
 const brk = checkBreak();
 rerender();
 if (brk) toast(brk.why);
+
+// Pacote de vozes: baixa/atualiza sozinho sempre que houver internet
+setTimeout(syncPack, 4000);
+window.addEventListener('online', () => syncPack());
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));

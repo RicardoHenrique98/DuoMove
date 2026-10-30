@@ -390,3 +390,8 @@ body.no-tabs .tabbar { display: none; }
 .demo.photo img { object-fit: cover; }
 .voice-opts { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
 .voice-opts .btn { margin-bottom: 4px; }
+.packs { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 4px; }
+.packs small { display: block; font-size: 12.5px; }
+.pack { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel2); text-align: left; }
+.pack.on { border-color: var(--accent); background: var(--accent-soft); }
+.pack-pick small { color: var(--muted); }

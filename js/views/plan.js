@@ -6,6 +6,7 @@ import { go, back } from '../router.js';
 import { LEVELS, BREAKS, PLACES, PHASES, VARIETY, QUALITIES, SEXES, FOCUS, createPlan, nextSession, phaseStatus, planWorkouts } from '../planner.js';
 import { startPlanSession } from '../workout.js';
 import { CARDIO_CHOICES } from '../cardio.js';
+import { voicePacks, syncPack } from '../voicepack.js';
 import { TECHNIQUES } from '../techniques.js';
 
 const GOALS = { 'Ganhar massa muscular': 'Hipertrofia, mais músculo', 'Ganhar força': 'Levantar mais peso', 'Emagrecer': 'Perder gordura mantendo músculo', 'Ganhar condicionamento': 'Mais fôlego e resistência', 'Melhorar saúde e bem-estar': 'Disposição e qualidade de vida' };
@@ -73,6 +74,8 @@ export const wizard = {
       delete answers.focusPicked;
       Object.assign(state.profile, answers);
       createPlan(state.profile);
+      // Já deixa a voz natural escolhida e baixando (se houver pacote publicado)
+      if (!state.profile.voicePack) voicePacks().then(v => { if (v.length) { state.profile.voicePack = v[0].id; save(); syncPack(); } });
       step = 0; answers = {};
       go('/plano', { replace: true });
       toast('Plano criado');

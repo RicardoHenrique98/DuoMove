@@ -1,13 +1,13 @@
 // Funciona offline: arquivos do app em cache; imagens dos exercícios guardadas quando vistas
-const VERSION = 'duo-move-v2.16.1';
+const VERSION = 'duo-move-v2.17.0';
 const CORE = ['./', './index.html', './css/style.css', './manifest.webmanifest', './data/howto.json', './icon-2.png',
-  './js/app.js', './js/theme.js', './js/voice.js', './js/router.js', './js/store.js', './js/data.js', './js/library.js', './js/util.js', './js/ui.js', './js/stats.js', './js/charts.js', './js/workout.js', './js/coach.js', './js/techniques.js', './js/planner.js', './js/cardio.js', './js/bodymap.js', './js/views/activity.js', './js/views/plan.js',
+  './js/app.js', './js/theme.js', './js/voice.js', './js/voicepack.js', './js/voicecatalog.js', './js/router.js', './js/store.js', './js/data.js', './js/library.js', './js/util.js', './js/ui.js', './js/stats.js', './js/charts.js', './js/workout.js', './js/coach.js', './js/techniques.js', './js/planner.js', './js/cardio.js', './js/bodymap.js', './js/views/activity.js', './js/views/plan.js',
   './js/views/home.js', './js/views/routines.js', './js/views/history.js', './js/views/progress.js', './js/views/profile.js', './js/views/live.js', './js/views/picker.js'];
 const IMAGES = 'duo-move-img';
 
 self.addEventListener('install', e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys()
-  .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== IMAGES).map(k => caches.delete(k))))
+  .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== IMAGES && !k.startsWith('duo-move-voz-')).map(k => caches.delete(k))))
   .then(() => self.clients.claim())));
 
 self.addEventListener('fetch', e => {
@@ -19,6 +19,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (url.pathname.includes('/data/voz/') && !url.pathname.endsWith('.json')) return;
   // Rede primeiro (pega atualizações), cache se estiver offline
   e.respondWith(fetch(req).then(r => { if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put(req, copy)); } return r; })
     .catch(() => caches.match(req).then(r => r || caches.match('./index.html'))));

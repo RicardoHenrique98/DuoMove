@@ -136,6 +136,9 @@ export function render() {
 
 // ---- Voz do treinador: comandos do treino ----
 // "Supino reto, série 2 de 4: 8 a 10 repetições com 40 quilos"
+// "40 quilos", "42 quilos e meio"
+const kgWords = kg => Number.isInteger(kg) ? `${kg} quilos` : Number.isInteger(kg * 2) ? `${Math.floor(kg)} quilos e meio` : `${String(kg).replace('.', ',')} quilos`;
+
 export function nextSetLine(w = a()) {
   if (!w) return '';
   const order = [...w.exercises];
@@ -150,7 +153,7 @@ export function nextSetLine(w = a()) {
     let what = '';
     if (ex.type === 'tempo' && (s.sec ?? t.sec)) what = sayDuration((s.sec ?? t.sec) / 60);
     else if (ex.type === 'cardio' && t.min) what = sayDuration(t.min);
-    else if (t.reps) what = `${t.rmax && !t.coach ? `${t.reps} a ${t.rmax}` : t.reps} repetições${t.kg ? ` com ${String(t.kg).replace('.', ',')} quilos` : ''}`;
+    else if (t.reps) what = `${t.rmax && !t.coach ? `${t.reps} a ${t.rmax}` : t.reps} repetições${t.kg ? ` com ${kgWords(t.kg)}` : ''}`;
     return `${name}, ${pos}${what ? ': ' + what : ''}.`;
   }
   return 'Era a última série. Toque em finalizar quando terminar.';

@@ -1,6 +1,7 @@
 // Voz do treinador: fala em português (voz do próprio aparelho) para guiar o cardio
 import { state } from './store.js';
 import { duckFor } from './ui.js';
+import { speakPack, stopPack } from './voicepack.js';
 
 let voice = null;
 const synth = globalThis.speechSynthesis;
@@ -50,9 +51,11 @@ function speakAll(texts, onStart) {
   if (talking) { synth.cancel(); talking = 0; setTimeout(go, 150); } else go();
 }
 
+// Voz natural do pacote quando estiver baixado; senão, a voz do aparelho
 export function say(text) {
   if (!voiceOn() || !text) return;
-  speakAll([text]);
+  if (talking) { synth.cancel(); talking = 0; }
+  speakPack(text).then(ok => { if (!ok) speakAll([text]); });
 }
 
 // "1 minuto e meio", "30 segundos", "5 minutos"
@@ -74,12 +77,15 @@ export function preview(onSilent) {
   if (!synth) return false;
   pickVoice();
   let started = false;
-  speakAll([
+  const lines = [
     'Oi! Eu sou o seu treinador no Duo Move.',
     'Boa! Descanse 1 minuto e meio.',
-    'Faltam 10 segundos. Próximo: supino reto, série 2 de 4: 8 a 10 repetições com 40 quilos.',
+    'Faltam 10 segundos. Próximo: Supino reto, série 2 de 4: 8 a 10 repetições com 40 quilos.',
     'Vai! Corra 1 minuto em ritmo leve. Intervalo 2 de 8.'
-  ], () => { started = true; });
+  ];
+  if (state.profile.voicePackReady?.voice && state.profile.voicePackReady.voice === state.profile.voicePack) {
+    speakPack(lines.join(' ')).then(ok => { if (ok) started = true; else speakAll(lines, () => { started = true; }); });
+  } else speakAll(lines, () => { started = true; });
   setTimeout(() => { if (!started && !synth.speaking) onSilent?.(); }, 2500);
   return true;
 }
