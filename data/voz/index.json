@@ -1,0 +1,12 @@
+{
+ "voices": [
+  {
+   "id": "charon",
+   "name": "Charon (masculina)"
+  },
+  {
+   "id": "leda",
+   "name": "Leda (feminina)"
+  }
+ ]
+}
