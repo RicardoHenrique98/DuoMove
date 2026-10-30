@@ -21,7 +21,12 @@ async function manifest(v) {
 
 // Baixa (ou atualiza) o pacote da voz escolhida para o armazenamento do aparelho
 export async function downloadPack(v, onProgress) {
-  const m = await manifest(v), files = Object.values(m.files), cache = await caches.open(cacheName(v));
+  const m = await manifest(v), files = Object.values(m.files);
+  // Versão nova do pacote: as falas refeitas têm o mesmo nome, então começa do zero
+  const had = await (await caches.open(cacheName(v))).match(`${BASE}${v}/manifest.json`);
+  if (had && (await had.json()).version !== m.version) await caches.delete(cacheName(v));
+  buffers = new Map();
+  const cache = await caches.open(cacheName(v));
   let done = 0;
   for (const f of files) {
     const url = `${BASE}${v}/${f}`;

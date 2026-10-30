@@ -1,7 +1,7 @@
 {
  "voice": "Charon",
  "model": "gemini-2.5-flash-native-audio-latest",
- "version": "2026-10-30T23:21-live-216",
+ "version": "2026-10-30T23:23-live-216-r110",
  "files": {
   "f-oi-eu-sou-o-seu-treinador-no-duo-move": "f-oi-eu-sou-o-seu-treinador-no-duo-move.m4a",
   "f-boa": "f-boa.m4a",

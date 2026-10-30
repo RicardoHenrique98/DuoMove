@@ -81,9 +81,10 @@ function wav(pcm) {
   return Buffer.concat([h, pcm]);
 }
 
+// A Live fala devagar: acelera 10% sem mudar o tom (pedido do Ricardo)
 async function save(pcm, base) {
   if (!HAS_FFMPEG) { await writeFile(base + '.wav', wav(pcm)); return '.wav'; }
-  const r = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 's16le', '-ar', String(RATE), '-ac', '1', '-i', 'pipe:0', '-c:a', 'aac', '-b:a', '48k', base + '.m4a'], { input: pcm });
+  const r = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 's16le', '-ar', String(RATE), '-ac', '1', '-i', 'pipe:0', '-af', 'atempo=1.1', '-c:a', 'aac', '-b:a', '48k', base + '.m4a'], { input: pcm });
   if (r.status !== 0) throw new Error('ffmpeg: ' + r.stderr);
   return '.m4a';
 }
