@@ -14,6 +14,7 @@ const KEY = process.env.GEMINI_API_KEY;
 if (!KEY) { console.log('Defina GEMINI_API_KEY antes de rodar.'); process.exit(1); }
 const MODEL = arg('modelo', 'gemini-2.5-flash-native-audio-latest');
 const CHECK = arg('conferir', 'gemini-3.1-flash-lite');
+// O index.json só lista uma voz quando todas as falas dela têm som
 const LABEL = { Charon: 'Charon (masculina)', Leda: 'Leda (feminina)' };
 const RATE = 24000; // a Live devolve PCM 16 bits, 24 kHz, mono
 const HAS_FFMPEG = spawnSync('ffmpeg', ['-version']).status === 0;
@@ -91,11 +92,12 @@ for (const voice of arg('vozes', 'Charon,Leda').split(',')) {
   const done = await exists(progress) ? JSON.parse(await readFile(progress, 'utf8')) : {};
   const items = catalog();
   for (const [i, { id: clip, text }] of items.entries()) {
-    if (done[clip]) continue;
+    if (done[clip] && await exists(`${dir}/${done[clip]}`) && (await readFile(`${dir}/${done[clip]}`)).length > 2048) continue; // refaz áudio vazio
     let ok = false;
-    for (let t = 0; t < 4 && !ok; t++) {
+    for (let t = 0; t < 8 && !ok; t++) {
       try {
         const pcm = trim(await live(text, voice));
+        if (pcm.length < RATE * 2 * 0.25) throw new Error('veio sem fala'); // a Live às vezes não fala palavras soltas
         const got = await heard(pcm);
         ok = got === null || words(got) === words(text);
         if (!ok && t < 3) { console.log(`  ${voice} ${i + 1}: ouviu "${got.trim()}", refazendo`); continue; }
@@ -107,7 +109,7 @@ for (const voice of arg('vozes', 'Charon,Leda').split(',')) {
     }
     if (!ok) throw new Error(`não consegui gerar "${text}". Rode de novo: continua daqui.`);
   }
-  await writeFile(`${dir}/manifest.json`, JSON.stringify({ voice, model: MODEL, version: new Date().toISOString().slice(0, 10) + '-live-' + items.length, files: Object.fromEntries(items.map(x => [x.id, done[x.id]])) }, null, 1));
+  await writeFile(`${dir}/manifest.json`, JSON.stringify({ voice, model: MODEL, version: new Date().toISOString().slice(0, 16) + '-live-' + items.length, files: Object.fromEntries(items.map(x => [x.id, done[x.id]])) }, null, 1));
   const f = 'data/voz/index.json', idx = await exists(f) ? JSON.parse(await readFile(f, 'utf8')) : { voices: [] };
   if (!idx.voices.some(v => v.id === id)) idx.voices.push({ id, name: LABEL[voice] || voice });
   await writeFile(f, JSON.stringify(idx, null, 1));
