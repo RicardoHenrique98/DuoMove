@@ -1,5 +1,5 @@
 // Gera o pacote de vozes naturais do treinador com o Gemini (texto → fala) e salva em data/voz/<voz>/.
-// Uso: node tools/gerar-vozes.mjs --voz Kore [--modelo gemini-2.5-flash-preview-tts] [--amostra]
+// Uso (nesta nuvem, com NODE_USE_ENV_PROXY=1): node tools/gerar-vozes.mjs --voz Kore [--modelo gemini-3.8-flash-tts] [--amostra]
 // A chave vem de GEMINI_API_KEY ou, num ambiente com "segredo de rede", é anexada pelo próprio ambiente.
 // --amostra gera só a frase de apresentação de várias vozes, para escolher qual usar.
 // É retomável: áudios já gerados são pulados. Precisa do ffmpeg instalado.
@@ -9,7 +9,7 @@ import { catalog } from '../js/voicecatalog.js';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const KEY = process.env.GEMINI_API_KEY;
-const MODEL = arg('modelo', process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts');
+const MODEL = arg('modelo', process.env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts');
 const SAMPLE = process.argv.includes('--amostra');
 if (!KEY) console.log('GEMINI_API_KEY não definida: usando o segredo de rede do ambiente, se houver.');
 
