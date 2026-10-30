@@ -37,7 +37,7 @@ function live(text, voice) {
     } }));
     ws.onmessage = async ev => {
       const m = JSON.parse(typeof ev.data === 'string' ? ev.data : await ev.data.text());
-      if (m.setupComplete) ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: `Fale: "${text}"` }] }], turnComplete: true } }));
+      if (m.setupComplete) ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: !/\s/.test(text.trim()) ? `Diga em voz alta só a palavra "${text}", sozinha, uma única vez.` : `Fale: "${text}"` }] }], turnComplete: true } }));
       for (const p of m.serverContent?.modelTurn?.parts || []) if (p.inlineData) chunks.push(Buffer.from(p.inlineData.data, 'base64'));
       if (m.serverContent?.turnComplete) { clearTimeout(timer); ws.close(); resolve(Buffer.concat(chunks)); }
     };
