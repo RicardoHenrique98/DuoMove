@@ -395,3 +395,4 @@ body.no-tabs .tabbar { display: none; }
 .pack { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel2); text-align: left; }
 .pack.on { border-color: var(--accent); background: var(--accent-soft); }
 .pack-pick small { color: var(--muted); }
+.km-total { margin: 14px 0; }

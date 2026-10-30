@@ -97,7 +97,7 @@ export function finishActive() {
     .map(e => ({ id: e.id, exId: e.exId, rest: e.rest, notes: e.notes, group: e.group || null, tech: e.tech || null, coach: e.coach?.tone || null, sets: e.sets.filter(s => s.done).map(s => ({ type: s.type, ...pick(s), done: true })) }))
     .filter(e => e.sets.length);
   if (!exercises.length) return null;
-  const w = { id: a.editing || a.id, name: a.name.trim() || 'Treino', routineId: a.routineId || null, kind: a.kind || null, plan: a.plan || null, notes: a.notes || '', start: a.start, end: a.editing ? a.end : Date.now(), exercises };
+  const w = { id: a.editing || a.id, name: a.name.trim() || 'Treino', routineId: a.routineId || null, kind: a.kind || null, plan: a.plan || null, km: a.km ?? null, notes: a.notes || '', start: a.start, end: a.editing ? a.end : Date.now(), exercises };
   if (a.editing) state.workouts = state.workouts.map(x => x.id === a.editing ? w : x);
   else state.workouts.push(w);
   state.active = null;

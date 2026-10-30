@@ -19,6 +19,7 @@ export function workoutVolume(w) {
 export const workoutSets = w => w.exercises.reduce((n, e) => n + e.sets.filter(s => s.done !== false).length, 0);
 
 export function workoutKm(w) {
+  if (w.km != null) return w.km; // distância total digitada no fim do treino
   let km = 0;
   for (const e of w.exercises) if (getEx(e.exId).type === 'cardio') for (const s of e.sets) if (s.done !== false) km += s.km || 0;
   return km;

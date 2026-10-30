@@ -89,16 +89,15 @@ export function confirmBox(title, text, okLabel = 'Confirmar', danger = false) {
 
 // Bipes do descanso (o AudioContext é liberado no primeiro toque). Web Audio toca junto
 // com a música de outros apps, mas o iPhone o pausa com o app em segundo plano.
-let audio, lastTick, restoreTimer;
-// Antes de qualquer aviso, pede ao iPhone para só abaixar a música de outros apps (sem pausar);
-// depois o volume volta ao normal. Safari 17+ (navigator.audioSession); nos demais, ignora.
-export function duckFor(ms) {
-  const as = navigator.audioSession;
-  if (!as) return;
-  try { as.type = 'transient'; } catch { return; }
-  clearTimeout(restoreTimer);
-  restoreTimer = setTimeout(() => { try { as.type = 'auto'; } catch { /* sem suporte */ } }, ms);
+let audio, lastTick;
+// Sessão "ambient": o som do app se mistura com a música de outros apps, sem pausá-la
+// (a voz do aparelho ainda abaixa a música enquanto fala). Voltar para "auto" fazia o
+// iPhone tratar o app como player e pausar a música. Safari 17+; nos demais, ignora.
+export function duckFor() {
+  const as = globalThis.navigator?.audioSession;
+  try { if (as && as.type !== 'ambient') as.type = 'ambient'; } catch { /* sem suporte */ }
 }
+duckFor();
 export const audioCtx = () => audio;
 export function unlockAudio() {
   try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); } catch { /* sem áudio */ }

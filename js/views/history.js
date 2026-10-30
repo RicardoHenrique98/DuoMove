@@ -44,6 +44,7 @@ export const detail = {
       <div class="summary-grid"><div><small>Duração</small><b>${fmtDuration((w.end || w.start) - w.start)}</b></div>
         ${km ? `<div><small>Distância</small><b>${fmtNum(km, 2)} km</b></div>` : `<div><small>Volume</small><b>${fmtKg(workoutVolume(w))}</b></div>`}
         <div><small>Séries</small><b>${workoutSets(w)}</b></div></div>
+      ${w.km ? `<p class="muted small">Ritmo médio ${fmtPace(w.km, w.exercises.reduce((m, e) => m + (getEx(e.exId).type === 'cardio' ? e.sets.reduce((n, s) => n + (s.min || 0), 0) : 0), 0))}</p>` : ''}
       ${bodyMap(w.exercises)}
       ${recs.length ? `<div class="records">${recs.map(x => `<div class="rec-line">${icon('trophy', 14)}<b>${esc(x.ex.name)}</b><span>${esc(x.label)}</span></div>`).join('')}</div>` : ''}
       ${w.exercises.map(e => {

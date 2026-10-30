@@ -30,7 +30,8 @@ const modeFor = (p, plan) => p.cardio === 'ambos' ? (plan.cidx % 2 ? 'pedal' : '
 // Ritmo médio das últimas corridas leves (min/km), para orientar os tiros
 function recentEasyPace() {
   const paces = state.workouts.filter(w => w.plan?.kind === 'cardio' && w.plan.type === 'leve' && w.plan.mode === 'corrida')
-    .slice(-4).flatMap(w => w.exercises.flatMap(e => e.sets.filter(s => s.km && s.min).map(s => s.min / s.km)));
+    .slice(-4).flatMap(w => w.km ? [w.exercises.reduce((m, e) => m + e.sets.reduce((n, s) => n + (s.min || 0), 0), 0) / w.km]
+      : w.exercises.flatMap(e => e.sets.filter(s => s.km && s.min).map(s => s.min / s.km)));
   return paces.length ? paces.reduce((a, b) => a + b, 0) / paces.length : null;
 }
 

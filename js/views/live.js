@@ -17,7 +17,7 @@ export const COLS = {
   peso: [['kg', 'KG'], ['reps', 'REPS']],
   corpo: [['reps', 'REPS']],
   tempo: [['sec', 'SEG']],
-  cardio: [['km', 'KM'], ['min', 'MIN']]
+  cardio: [['min', 'MIN']] // a distância é uma só, no fim (campo "Distância total")
 };
 const COACH_ICON = { up: 'up', keep: 'check', down: 'down', new: 'bulb' };
 const REQUIRED = { peso: ['reps'], corpo: ['reps'], tempo: ['sec'], cardio: ['min'] };
@@ -76,7 +76,7 @@ function statsHtml() {
   const vol = workoutVolume(doneW);
   const cardioOnly = w.exercises.length && w.exercises.every(e => getEx(e.exId).type === 'cardio');
   return `<div><small>Duração</small><b ${w.editing ? '' : 'data-clock'}>${w.editing ? fmtDuration(w.end - w.start) : fmtClock(Date.now() - w.start)}</b></div>
-    ${cardioOnly ? `<div><small>Distância</small><b>${fmtNum(workoutKm(doneW), 2) || 0} km</b></div>` : `<div><small>Volume</small><b>${fmtKg(vol)}</b></div>`}<div><small>Séries</small><b>${sets}</b></div>`;
+    ${cardioOnly ? `<div><small>Distância</small><b>${fmtNum(workoutKm({ ...doneW, km: w.km }), 2) || 0} km</b></div>` : `<div><small>Volume</small><b>${fmtKg(vol)}</b></div>`}<div><small>Séries</small><b>${sets}</b></div>`;
 }
 
 function exerciseCard(e, i, all) {
@@ -130,6 +130,7 @@ export function render() {
     </header>
     <div class="live-stats" id="liveStats">${statsHtml()}</div>
     ${w.exercises.length ? w.exercises.map((e, i, all) => exerciseCard(e, i, all)).join('') : `<div class="empty big">${icon('dumbbell', 34)}<b>Comece adicionando um exercício</b><span>Busque na biblioteca ou crie o seu.</span></div>`}
+    ${w.exercises.some(e => getEx(e.exId).type === 'cardio') ? `<label class="field km-total"><span>Distância total (km) · veja no relógio ou app no fim</span><input data-f="kmTotal" inputmode="decimal" autocomplete="off" placeholder="0,0" value="${w.km != null ? esc(fmtNum(w.km, 2)) : ''}"></label>` : ''}
     <button class="btn primary block" data-act="addEx">${icon('plus', 18)} Adicionar exercício</button>
     <button class="btn danger-ghost block" data-act="discard">${w.editing ? 'Cancelar edição' : 'Descartar treino'}</button>`;
 }
@@ -278,6 +279,7 @@ export function input(el) {
   const f = el.dataset.f;
   if (f === 'name') w.name = el.value;
   else if (f === 'note') findEx(el).notes = el.value;
+  else if (f === 'kmTotal') { w.km = num(el.value); refreshStats(); }
   else {
     const s = findSet(el, findEx(el));
     if (!s) return;
