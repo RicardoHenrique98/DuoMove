@@ -26,7 +26,7 @@ async function tts(lines, voice) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
       method: 'POST', headers: { 'content-type': 'application/json', ...(KEY ? { 'x-goog-api-key': KEY } : {}) },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: LEAD + lines.join('\n') }] }],
+        contents: [{ parts: [{ text: LEAD + lines.map(t => /[.!?:]$/.test(t) ? t : t + '.').join('\n') }] }], // lista de números soltos sem ponto é recusada
         generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
       })
     });
@@ -39,7 +39,7 @@ async function tts(lines, voice) {
     const j = await r.json();
     if (!r.ok) throw new Error(`${r.status}: ${j.error?.message}`);
     const data = j.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-    if (!data) throw new Error('resposta sem áudio');
+    if (!data) throw new Error('resposta sem áudio: ' + JSON.stringify(j).slice(0, 300));
     return Buffer.from(data, 'base64'); // PCM 16 bits, 24 kHz, mono
   }
   throw new Error('muitas tentativas');
